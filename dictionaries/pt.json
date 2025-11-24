@@ -1,0 +1,64 @@
+{
+  "common": {
+    "search": "Pesquisar",
+    "loading": "A procurar as melhores ofertas...",
+    "error": "Ocorreu um erro",
+    "language": "Idioma",
+    "currency": "Moeda",
+    "results_found": "resultados encontrados",
+    "no_results": "Nenhum resultado encontrado",
+    "try_changing": "Tente alterar as datas ou o destino.",
+    "sort_by": "Ordenar por",
+    "recommended": "Recomendado",
+    "cheapest": "Mais barato",
+    "fastest": "Mais rápido",
+    "load_more": "Carregar mais resultados"
+  },
+  "navigation": {
+    "flights": "Voos",
+    "trains": "Comboios",
+    "buses": "Autocarros",
+    "hotels": "Hotéis",
+    "login": "Entrar",
+    "register": "Registar"
+  },
+  "home": {
+    "hero": {
+      "title": "Viaje pela Europa com o",
+      "titleHighlight": "Melhor Preço",
+      "subtitle": "Compare e reserve voos, comboios e autocarros em Portugal e em toda a Europa."
+    },
+    "features": {
+      "smartComparison": {
+        "title": "Comparação Inteligente",
+        "description": "Analisamos centenas de rotas para encontrar a opção mais rápida e barata para si."
+      },
+      "europeExperts": {
+        "title": "Especialistas na Europa",
+        "description": "Conexões diretas com as principais operadoras ferroviárias e aéreas do continente."
+      },
+      "noHiddenFees": {
+        "title": "Sem Taxas Ocultas",
+        "description": "O preço que vê é o preço que paga. Transparência total em todas as reservas."
+      }
+    },
+    "cta": {
+      "title": "Pronto para a sua próxima aventura?",
+      "subtitle": "Junte-se a milhares de viajantes que poupam tempo e dinheiro com a Viajando.",
+      "buttonPrimary": "Começar Agora",
+      "buttonSecondary": "Saber Mais"
+    }
+  },
+  "search": {
+    "origin": "Origem",
+    "destination": "Destino",
+    "departure": "Ida",
+    "return": "Volta",
+    "passengers": "Passageiros",
+    "search_button": "Procurar Viagens",
+    "mode_flight": "Voos",
+    "mode_train": "Comboios",
+    "mode_bus": "Autocarros",
+    "mode_hotel": "Hotéis"
+  }
+}

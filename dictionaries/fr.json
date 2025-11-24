@@ -1,0 +1,64 @@
+{
+  "common": {
+    "search": "Rechercher",
+    "loading": "Recherche des meilleures offres...",
+    "error": "Une erreur s'est produite",
+    "language": "Langue",
+    "currency": "Devise",
+    "results_found": "résultats trouvés",
+    "no_results": "Aucun résultat trouvé",
+    "try_changing": "Essayez de changer les dates ou la destination.",
+    "sort_by": "Trier par",
+    "recommended": "Recommandé",
+    "cheapest": "Moins cher",
+    "fastest": "Plus rapide",
+    "load_more": "Charger plus de résultats"
+  },
+  "navigation": {
+    "flights": "Vols",
+    "trains": "Trains",
+    "buses": "Bus",
+    "hotels": "Hôtels",
+    "login": "Se connecter",
+    "register": "S'inscrire"
+  },
+  "home": {
+    "hero": {
+      "title": "Voyagez en Europe au",
+      "titleHighlight": "Meilleur Prix",
+      "subtitle": "Comparez et réservez des vols, trains et bus au Portugal et dans toute l'Europe."
+    },
+    "features": {
+      "smartComparison": {
+        "title": "Comparaison Intelligente",
+        "description": "Nous analysons des centaines d'itinéraires pour trouver l'option la plus rapide et la moins chère pour vous."
+      },
+      "europeExperts": {
+        "title": "Experts de l'Europe",
+        "description": "Connexions directes avec les principaux opérateurs ferroviaires et aériens du continent."
+      },
+      "noHiddenFees": {
+        "title": "Pas de Frais Cachés",
+        "description": "Le prix que vous voyez est le prix que vous payez. Transparence totale sur toutes les réservations."
+      }
+    },
+    "cta": {
+      "title": "Prêt pour votre prochaine aventure?",
+      "subtitle": "Rejoignez des milliers de voyageurs qui économisent temps et argent avec Viajando.",
+      "buttonPrimary": "Commencer Maintenant",
+      "buttonSecondary": "En Savoir Plus"
+    }
+  },
+  "search": {
+    "origin": "Origine",
+    "destination": "Destination",
+    "departure": "Départ",
+    "return": "Retour",
+    "passengers": "Passagers",
+    "search_button": "Rechercher des Voyages",
+    "mode_flight": "Vols",
+    "mode_train": "Trains",
+    "mode_bus": "Bus",
+    "mode_hotel": "Hôtels"
+  }
+}

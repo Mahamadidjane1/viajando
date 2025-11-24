@@ -1,0 +1,64 @@
+{
+  "common": {
+    "search": "Buscar",
+    "loading": "Buscando las mejores ofertas...",
+    "error": "Ocurrió un error",
+    "language": "Idioma",
+    "currency": "Moneda",
+    "results_found": "resultados encontrados",
+    "no_results": "No se encontraron resultados",
+    "try_changing": "Intenta cambiar las fechas o el destino.",
+    "sort_by": "Ordenar por",
+    "recommended": "Recomendado",
+    "cheapest": "Más barato",
+    "fastest": "Más rápido",
+    "load_more": "Cargar más resultados"
+  },
+  "navigation": {
+    "flights": "Vuelos",
+    "trains": "Trenes",
+    "buses": "Autobuses",
+    "hotels": "Hoteles",
+    "login": "Iniciar sesión",
+    "register": "Registrarse"
+  },
+  "home": {
+    "hero": {
+      "title": "Viaja por Europa al",
+      "titleHighlight": "Mejor Precio",
+      "subtitle": "Compara y reserva vuelos, trenes y autobuses en Portugal y toda Europa."
+    },
+    "features": {
+      "smartComparison": {
+        "title": "Comparación Inteligente",
+        "description": "Analizamos cientos de rutas para encontrar la opción más rápida y barata para ti."
+      },
+      "europeExperts": {
+        "title": "Expertos en Europa",
+        "description": "Conexiones directas con los principales operadores ferroviarios y aéreos del continente."
+      },
+      "noHiddenFees": {
+        "title": "Sin Tarifas Ocultas",
+        "description": "El precio que ves es el precio que pagas. Transparencia total en todas las reservas."
+      }
+    },
+    "cta": {
+      "title": "¿Listo para tu próxima aventura?",
+      "subtitle": "Únete a miles de viajeros que ahorran tiempo y dinero con Viajando.",
+      "buttonPrimary": "Empezar Ahora",
+      "buttonSecondary": "Saber Más"
+    }
+  },
+  "search": {
+    "origin": "Origen",
+    "destination": "Destino",
+    "departure": "Ida",
+    "return": "Vuelta",
+    "passengers": "Pasajeros",
+    "search_button": "Buscar Viajes",
+    "mode_flight": "Vuelos",
+    "mode_train": "Trenes",
+    "mode_bus": "Autobuses",
+    "mode_hotel": "Hoteles"
+  }
+}

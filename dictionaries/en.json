@@ -1,0 +1,64 @@
+{
+  "common": {
+    "search": "Search",
+    "loading": "Searching for the best deals...",
+    "error": "An error occurred",
+    "language": "Language",
+    "currency": "Currency",
+    "results_found": "results found",
+    "no_results": "No results found",
+    "try_changing": "Try changing your dates or destination.",
+    "sort_by": "Sort by",
+    "recommended": "Recommended",
+    "cheapest": "Cheapest",
+    "fastest": "Fastest",
+    "load_more": "Load more results"
+  },
+  "navigation": {
+    "flights": "Flights",
+    "trains": "Trains",
+    "buses": "Buses",
+    "hotels": "Hotels",
+    "login": "Login",
+    "register": "Register"
+  },
+  "home": {
+    "hero": {
+      "title": "Travel Europe at the",
+      "titleHighlight": "Best Price",
+      "subtitle": "Compare and book flights, trains, and buses in Portugal and across Europe."
+    },
+    "features": {
+      "smartComparison": {
+        "title": "Smart Comparison",
+        "description": "We analyze hundreds of routes to find the fastest and cheapest option for you."
+      },
+      "europeExperts": {
+        "title": "Europe Experts",
+        "description": "Direct connections with the continent's main rail and air operators."
+      },
+      "noHiddenFees": {
+        "title": "No Hidden Fees",
+        "description": "The price you see is the price you pay. Total transparency on all bookings."
+      }
+    },
+    "cta": {
+      "title": "Ready for your next adventure?",
+      "subtitle": "Join thousands of travelers saving time and money with Viajando.",
+      "buttonPrimary": "Start Now",
+      "buttonSecondary": "Learn More"
+    }
+  },
+  "search": {
+    "origin": "Origin",
+    "destination": "Destination",
+    "departure": "Departure",
+    "return": "Return",
+    "passengers": "Passengers",
+    "search_button": "Search Trips",
+    "mode_flight": "Flights",
+    "mode_train": "Trains",
+    "mode_bus": "Buses",
+    "mode_hotel": "Hotels"
+  }
+}
