@@ -4,7 +4,7 @@ export function SearchFilters() {
   return (
     <div className="space-y-6">
       {/* Stops Filter */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
         <h3 className="font-semibold mb-4 text-sm uppercase tracking-wider text-gray-500">Paragens</h3>
         <div className="space-y-3">
           <label className="flex items-center gap-3 cursor-pointer group">
@@ -19,7 +19,7 @@ export function SearchFilters() {
       </div>
 
       {/* Price Filter */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
         <h3 className="font-semibold mb-4 text-sm uppercase tracking-wider text-gray-500">Preço</h3>
         <div className="px-2">
           <Slider defaultValue={[150]} max={500} step={10} className="mb-4" />
@@ -31,7 +31,7 @@ export function SearchFilters() {
       </div>
 
       {/* Departure Time */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
         <h3 className="font-semibold mb-4 text-sm uppercase tracking-wider text-gray-500">Horário de Partida</h3>
         <div className="space-y-2">
           <div className="grid grid-cols-2 gap-2">
@@ -52,7 +52,7 @@ export function SearchFilters() {
       </div>
 
       {/* Airlines/Operators */}
-      <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
         <h3 className="font-semibold mb-4 text-sm uppercase tracking-wider text-gray-500">Companhias</h3>
         <div className="space-y-3">
           <label className="flex items-center gap-3 cursor-pointer">

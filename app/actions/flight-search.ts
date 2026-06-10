@@ -1,6 +1,19 @@
 import { searchFlightsSafe } from "@/lib/amadeus-service"
 import { MOCK_RESULTS } from "@/lib/mock-data"
 
+type FlightOffer = {
+  id?: string
+  itineraries?: Array<{
+    duration?: string
+    segments?: Array<{
+      departure?: { at?: string; iataCode?: string }
+      arrival?: { at?: string; iataCode?: string }
+    }>
+  }>
+  validatingAirlineCodes?: string[]
+  price?: { total?: string; currency?: string }
+}
+
 export async function searchFlightsAction({
   origin,
   destination,
@@ -31,18 +44,18 @@ export async function searchFlightsAction({
     const results = await searchFlightsSafe({
       origin: originCode,
       destination: destCode,
-      departureDate: date,
+      date,
       adults: adults.toString(),
     })
 
     // If API failed (returned null) or returned no results, use MOCK data as fallback
     // This ensures the user ALWAYS sees something
-    if (!results || !results.data || !Array.isArray(results.data) || results.data.length === 0) {
+    if (!Array.isArray(results) || results.length === 0) {
       return { success: true, data: MOCK_RESULTS }
     }
 
-    const tickets = results.data
-      .map((offer: any) => {
+    const tickets = results
+      .map((offer: FlightOffer) => {
         try {
           const itinerary = offer.itineraries?.[0]
           if (!itinerary) return null

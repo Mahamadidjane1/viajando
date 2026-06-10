@@ -37,7 +37,7 @@ export function DateNavigation({ lang = "pt" }: { lang?: Locale }) {
   })
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-2 mb-6">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-2 mb-6">
       <div className="flex items-center justify-between">
         <Button variant="ghost" size="icon" className="text-gray-400 hover:text-primary">
           <ChevronLeft className="h-5 w-5" />

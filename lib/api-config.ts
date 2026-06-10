@@ -10,47 +10,50 @@ export interface APIConfig {
   }
 }
 
-// Direct API configuration - keys are hardcoded
-const DIRECT_API_CONFIG: APIConfig = {
+const amadeusEnvironment =
+  process.env.AMADEUS_ENVIRONMENT === "production" ? "production" : "test"
+
+const API_CONFIG_FROM_ENV: APIConfig = {
   amadeus: {
-    key: "QUNShCIUqEpRvIOcIb9Sfb3n5syRGZ5d",
-    secret: "5dcC1zFuSIMiLxH0",
-    active: true,
-    environment: "test",
+    key: process.env.AMADEUS_API_KEY ?? "",
+    secret: process.env.AMADEUS_API_SECRET ?? "",
+    active: process.env.AMADEUS_ACTIVE !== "false",
+    environment: amadeusEnvironment,
   },
   maps: {
-    key: "", // Add Google Maps key here when available
+    key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ?? "",
   },
 }
 
 export function getAPIConfig(): APIConfig {
-  return DIRECT_API_CONFIG
+  return API_CONFIG_FROM_ENV
 }
 
 export function isAmadeusConfigured(): boolean {
   const config = getAPIConfig()
-  return !!(config.amadeus.key && config.amadeus.active)
+  return !!(config.amadeus.key && config.amadeus.secret && config.amadeus.active)
 }
 
 export function getAmadeusKey(): string {
-  return DIRECT_API_CONFIG.amadeus.key
+  return API_CONFIG_FROM_ENV.amadeus.key
 }
 
 export function getAmadeusSecret(): string {
-  return DIRECT_API_CONFIG.amadeus.secret
+  return API_CONFIG_FROM_ENV.amadeus.secret
 }
 
 export function getAmadeusEnv(): "test" | "production" {
-  return DIRECT_API_CONFIG.amadeus.environment
+  return API_CONFIG_FROM_ENV.amadeus.environment
 }
 
 export function getGoogleMapsKey(): string {
-  return DIRECT_API_CONFIG.maps.key
+  return API_CONFIG_FROM_ENV.maps.key
 }
 
 export const API_CONFIG = {
-  AMADEUS_API_KEY: DIRECT_API_CONFIG.amadeus.key,
-  AMADEUS_API_SECRET: DIRECT_API_CONFIG.amadeus.secret,
+  AMADEUS_API_KEY: API_CONFIG_FROM_ENV.amadeus.key,
+  AMADEUS_API_SECRET: API_CONFIG_FROM_ENV.amadeus.secret,
   AMADEUS_BASE_URL:
-    DIRECT_API_CONFIG.amadeus.environment === "test" ? "https://test.api.amadeus.com" : "https://api.amadeus.com",
+    process.env.AMADEUS_BASE_URL ??
+    (API_CONFIG_FROM_ENV.amadeus.environment === "test" ? "https://test.api.amadeus.com" : "https://api.amadeus.com"),
 }

@@ -2,223 +2,182 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { CalendarIcon, Plane, Train, Bus, Loader2, Check, ChevronsUpDown } from "lucide-react"
-import { format } from "date-fns"
-import { pt, enUS, es, fr } from "date-fns/locale"
-
-import { cn } from "@/lib/utils"
+import { ArrowRightLeft, Bus, CalendarDays, Loader2, Plane, Search, Train } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Calendar } from "@/components/ui/calendar"
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/utils"
 import { airports } from "@/lib/airports"
 import type { Locale } from "@/i18n-config"
 
-const localeMap = {
-  pt: pt,
-  en: enUS,
-  es: es,
-  fr: fr,
-} as const
+const transportModes = [
+  { value: "flight", label: "Voos", icon: Plane },
+  { value: "train", label: "Comboios", icon: Train },
+  { value: "bus", label: "Autocarros", icon: Bus },
+] as const
 
 export function SearchWidget({ lang }: { lang: Locale }) {
   const router = useRouter()
   const [isLoading, setIsLoading] = React.useState(false)
   const [origin, setOrigin] = React.useState("")
   const [destination, setDestination] = React.useState("")
-  const [date, setDate] = React.useState<Date>()
-  const [openOrigin, setOpenOrigin] = React.useState(false)
-  const [openDestination, setOpenDestination] = React.useState(false)
+  const [date, setDate] = React.useState("")
+  const [mode, setMode] = React.useState<(typeof transportModes)[number]["value"]>("flight")
+  const [error, setError] = React.useState("")
 
-  const handleSearch = async () => {
-    if (!origin || !destination || !date) return
+  const isSameRoute = origin !== "" && origin === destination
+  const isFormValid = origin !== "" && destination !== "" && date !== "" && !isSameRoute
 
+  const swapRoute = () => {
+    setOrigin(destination)
+    setDestination(origin)
+    setError("")
+  }
+
+  const handleSearch = () => {
+    if (!origin || !destination || !date) {
+      setError("Preencha origem, destino e data de partida.")
+      return
+    }
+
+    if (isSameRoute) {
+      setError("Escolha uma origem e um destino diferentes.")
+      return
+    }
+
+    setError("")
     setIsLoading(true)
 
-    // Format date to YYYY-MM-DD
-    const formattedDate = format(date, "yyyy-MM-dd")
-
-    // Redirect to search page with query params
     const searchParams = new URLSearchParams({
+      type: mode,
       origin,
       destination,
-      date: formattedDate,
+      date,
     })
 
     router.push(`/${lang}/search?${searchParams.toString()}`)
-    setIsLoading(false)
   }
 
-  const isFormValid = origin && destination && date
-
   return (
-    <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-2 md:p-6">
-      <Tabs defaultValue="flights" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-6 bg-muted/50 p-1 h-auto">
-          <TabsTrigger
-            value="flights"
-            className="py-3 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm gap-2"
+    <section
+      aria-label="Pesquisa de viagens"
+      className="mx-auto w-full max-w-5xl rounded-lg border border-border bg-background p-4 shadow-sm md:p-5"
+    >
+      <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Tipo de transporte">
+        {transportModes.map((item) => {
+          const Icon = item.icon
+          const isActive = mode === item.value
+
+          return (
+            <button
+              key={item.value}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setMode(item.value)}
+              className={cn(
+                "inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors",
+                isActive
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {item.label}
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-[1fr_auto_1fr_180px_150px] md:items-end">
+        <div className="space-y-1.5">
+          <label htmlFor="origin" className="text-sm font-medium text-foreground">
+            Origem
+          </label>
+          <select
+            id="origin"
+            value={origin}
+            onChange={(event) => {
+              setOrigin(event.target.value)
+              setError("")
+            }}
+            aria-invalid={Boolean(error && !origin)}
+            className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-ring"
           >
-            <Plane className="h-4 w-4" /> Voos
-          </TabsTrigger>
-          <TabsTrigger
-            value="trains"
-            className="py-3 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm gap-2"
+            <option value="">Selecionar origem</option>
+            {airports.map((airport) => (
+              <option key={airport.value} value={airport.value}>
+                {airport.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex justify-start md:justify-center">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-11 w-11"
+            onClick={swapRoute}
+            disabled={!origin && !destination}
+            aria-label="Trocar origem e destino"
           >
-            <Train className="h-4 w-4" /> Comboios
-          </TabsTrigger>
-          <TabsTrigger
-            value="buses"
-            className="py-3 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm gap-2"
+            <ArrowRightLeft className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="destination" className="text-sm font-medium text-foreground">
+            Destino
+          </label>
+          <select
+            id="destination"
+            value={destination}
+            onChange={(event) => {
+              setDestination(event.target.value)
+              setError("")
+            }}
+            aria-invalid={Boolean(error && (!destination || isSameRoute))}
+            className="h-11 w-full rounded-md border border-input bg-background px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-ring"
           >
-            <Bus className="h-4 w-4" /> Autocarros
-          </TabsTrigger>
-        </TabsList>
+            <option value="">Selecionar destino</option>
+            {airports.map((airport) => (
+              <option key={airport.value} value={airport.value}>
+                {airport.label}
+              </option>
+            ))}
+          </select>
+        </div>
 
-        {["flights", "trains", "buses"].map((tab) => (
-          <TabsContent key={tab} value={tab} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-              {/* Origin Autocomplete */}
-              <div className="md:col-span-3 relative">
-                <label className="text-xs font-semibold text-muted-foreground ml-1 mb-1 block">De onde?</label>
-                <Popover open={openOrigin} onOpenChange={setOpenOrigin}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={openOrigin}
-                      className="w-full justify-between h-12 bg-muted/30 border-muted-foreground/20"
-                    >
-                      {origin ? airports.find((city) => city.value === origin)?.label : "Selecione origem..."}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[280px] p-0">
-                    <Command>
-                      <CommandInput placeholder="Procurar cidade ou aeroporto..." />
-                      <CommandList>
-                        <CommandEmpty>Cidade não encontrada.</CommandEmpty>
-                        <CommandGroup className="max-h-[300px] overflow-y-auto">
-                          {airports.map((city) => (
-                            <CommandItem
-                              key={city.value}
-                              value={city.label}
-                              onSelect={() => {
-                                setOrigin(city.value)
-                                setOpenOrigin(false)
-                              }}
-                            >
-                              <Check
-                                className={cn("mr-2 h-4 w-4", origin === city.value ? "opacity-100" : "opacity-0")}
-                              />
-                              {city.label}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
+        <div className="space-y-1.5">
+          <label htmlFor="departure-date" className="text-sm font-medium text-foreground">
+            Partida
+          </label>
+          <div className="relative">
+            <CalendarDays className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+            <Input
+              id="departure-date"
+              type="date"
+              value={date}
+              onChange={(event) => {
+                setDate(event.target.value)
+                setError("")
+              }}
+              aria-invalid={Boolean(error && !date)}
+              className="h-11 pl-9"
+            />
+          </div>
+        </div>
 
-              {/* Destination Autocomplete */}
-              <div className="md:col-span-3 relative">
-                <label className="text-xs font-semibold text-muted-foreground ml-1 mb-1 block">Para onde?</label>
-                <Popover open={openDestination} onOpenChange={setOpenDestination}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={openDestination}
-                      className="w-full justify-between h-12 bg-muted/30 border-muted-foreground/20"
-                    >
-                      {destination
-                        ? airports.find((city) => city.value === destination)?.label
-                        : "Selecione destino..."}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[280px] p-0">
-                    <Command>
-                      <CommandInput placeholder="Procurar cidade ou aeroporto..." />
-                      <CommandList>
-                        <CommandEmpty>Cidade não encontrada.</CommandEmpty>
-                        <CommandGroup className="max-h-[300px] overflow-y-auto">
-                          {airports.map((city) => (
-                            <CommandItem
-                              key={city.value}
-                              value={city.label}
-                              onSelect={() => {
-                                setDestination(city.value)
-                                setOpenDestination(false)
-                              }}
-                            >
-                              <Check
-                                className={cn("mr-2 h-4 w-4", destination === city.value ? "opacity-100" : "opacity-0")}
-                              />
-                              {city.label}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
+        <Button type="button" className="h-11 w-full gap-2" onClick={handleSearch} disabled={isLoading || !isFormValid}>
+          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+          Pesquisar
+        </Button>
+      </div>
 
-              {/* Date Picker */}
-              <div className="md:col-span-2 relative">
-                <label className="text-xs font-semibold text-muted-foreground ml-1 mb-1 block">Partida</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-full justify-start text-left font-normal h-12 bg-muted/30 border-muted-foreground/20",
-                        !date && "text-muted-foreground",
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {date ? format(date, "PPP", { locale: localeMap[lang] }) : <span>Selecione data</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar mode="single" selected={date} onSelect={setDate} initialFocus />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              {/* Return Date (Optional/Mock) */}
-              <div className="md:col-span-2 relative">
-                <label className="text-xs font-semibold text-muted-foreground ml-1 mb-1 block">Regresso</label>
-                <div className="relative">
-                  <CalendarIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input type="date" className="pl-9 h-12 bg-muted/30 border-muted-foreground/20" />
-                </div>
-              </div>
-
-              {/* Search Button */}
-              <div className="md:col-span-2 flex items-end">
-                <Button
-                  className="w-full h-12 bg-secondary hover:bg-secondary/90 text-secondary-foreground font-bold text-base shadow-md"
-                  onClick={handleSearch}
-                  disabled={!isFormValid || isLoading}
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />A pesquisar...
-                    </>
-                  ) : (
-                    "Pesquisar"
-                  )}
-                </Button>
-              </div>
-            </div>
-          </TabsContent>
-        ))}
-      </Tabs>
-    </div>
+      <div className="mt-3 min-h-5" aria-live="polite">
+        {error ? <p className="text-sm font-medium text-destructive">{error}</p> : null}
+      </div>
+    </section>
   )
 }

@@ -1,12 +1,12 @@
 {
-  "name": "my-v0-project",
+  "name": "viajando",
   "version": "0.1.0",
+  "description": "Professional travel booking platform built with Next.js, Prisma, Stripe, and Amadeus.",
   "private": true,
   "scripts": {
     "build": "prisma generate && next build",
     "dev": "next dev",
     "postinstall": "prisma generate",
-    "lint": "eslint .",
     "start": "next start"
   },
   "dependencies": {
@@ -14,7 +14,7 @@
     "@auth/prisma-adapter": "latest",
     "@formatjs/intl-localematcher": "latest",
     "@hookform/resolvers": "latest",
-    "@prisma/client": "latest",
+    "@prisma/client": "6.19.3",
     "@radix-ui/react-accordion": "latest",
     "@radix-ui/react-alert-dialog": "latest",
     "@radix-ui/react-aspect-ratio": "latest",
@@ -56,11 +56,11 @@
     "input-otp": "latest",
     "lucide-react": "^0.454.0",
     "negotiator": "latest",
-    "next": "16.0.3",
-    "next-auth": "latest",
+    "next": "^16.2.6",
+    "next-auth": "5.0.0-beta.31",
     "next-themes": "latest",
     "nodemailer": "latest",
-    "prisma": "latest",
+    "prisma": "6.19.3",
     "react": "19.2.0",
     "react-day-picker": "latest",
     "react-dom": "19.2.0",

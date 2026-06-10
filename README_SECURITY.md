@@ -1,34 +1,47 @@
-# Security Guidelines & Procedures
+# Security Guidelines
 
-## 🚨 Critical Security Rules
+## Critical Security Rules
 
-1. **No Hardcoded Secrets**: Never commit API keys, passwords, or tokens to the repository. Use environment variables (`.env.local`).
-2. **Token Exposure**: If a secret is accidentally committed, revoke it immediately in the provider's dashboard (Amadeus, Google Cloud, etc.).
-3. **Frontend Leaks**: Never use server-side keys (like `AMADEUS_API_SECRET`) in client-side code (components starting with "use client").
+1. No hardcoded secrets: never commit API keys, passwords, tokens, or database URLs.
+2. Use `.env.local` for local secrets and hosting provider environment variables in production.
+3. Never expose server-side keys in client components or variables prefixed with `NEXT_PUBLIC_`.
+4. If a real secret was ever committed, revoke it in the provider dashboard and generate a new one.
 
-## 🔑 Key Rotation Procedure
+## Key Rotation Procedure
 
-If you suspect a key compromise:
+### Amadeus
 
-1. **Amadeus API**:
-   - Log in to Amadeus for Developers.
-   - Go to "My Apps".
-   - Click "Reset Secret" or create a new app.
-   - Update `AMADEUS_API_SECRET` in your Vercel environment variables.
+1. Open Amadeus for Developers.
+2. Go to the application credentials.
+3. Reset the secret or create a new application.
+4. Update `AMADEUS_API_KEY` and `AMADEUS_API_SECRET` in the deployment environment.
 
-2. **Google Maps**:
-   - Go to Google Cloud Console > Credentials.
-   - Regenerate the API Key.
-   - Update the environment variable.
+### Stripe
 
-## 🛡️ Application Security Features
+1. Open the Stripe Dashboard.
+2. Rotate the secret key and webhook secret.
+3. Update `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`.
+4. Test checkout and webhook delivery.
 
-- **Rate Limiting**: The backend implements throttling to prevent API abuse.
-- **Input Validation**: All API inputs are validated with Zod schemas.
-- **Error Suppression**: Detailed errors are logged server-side but sanitized before reaching the client.
+### Google Maps
 
-## 📝 Checklist for Deploy
+1. Open Google Cloud Console.
+2. Restrict the browser key by domain.
+3. Regenerate the key if it was exposed.
+4. Update `NEXT_PUBLIC_GOOGLE_MAPS_KEY`.
 
-- [ ] Ensure all `.env` variables are set in Vercel.
-- [ ] Verify that `NEXT_PUBLIC_` is only used for non-sensitive keys.
-- [ ] Check Amadeus Quota limits.
+## Application Security Features
+
+- Zod validation for API and form input.
+- Stripe webhook signature verification.
+- Server-side API access for Amadeus credentials.
+- Environment-based configuration.
+- Mock fallback when external providers are unavailable.
+
+## Deploy Checklist
+
+- [ ] `.env.local` is not committed.
+- [ ] Required production variables are configured in the hosting provider.
+- [ ] Old Amadeus keys that appeared in Git history were revoked.
+- [ ] Stripe webhook signing secret is configured.
+- [ ] `NEXT_PUBLIC_` is only used for values that can be visible in the browser.

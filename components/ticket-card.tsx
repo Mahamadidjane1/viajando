@@ -21,7 +21,7 @@ interface TicketData {
 
 export function TicketCard({ data }: { data: TicketData }) {
   return (
-    <div className="group bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md hover:border-primary/20 transition-all duration-200 overflow-hidden relative">
+    <div className="group bg-white rounded-lg shadow-sm border border-gray-100 hover:shadow-md hover:border-primary/20 transition-all duration-200 overflow-hidden relative">
       <button className="absolute top-4 right-4 text-gray-300 hover:text-red-500 transition-colors z-10">
         <Heart className="w-5 h-5" />
         <span className="sr-only">Guardar viagem</span>

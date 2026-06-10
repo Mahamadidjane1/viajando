@@ -164,7 +164,7 @@ export function SearchContent({ dictionary }: { dictionary: any }) {
       <main className="flex-1 container mx-auto px-4 py-6">
         <div className="flex flex-col lg:flex-row gap-6">
           <aside className="w-full lg:w-64 flex-shrink-0 space-y-6">
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
               <h3 className="font-semibold mb-4">{dictionary.search?.mode_flight || "Tipo de Transporte"}</h3>
               <div className="space-y-2">
                 <label className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
@@ -231,7 +231,7 @@ export function SearchContent({ dictionary }: { dictionary: any }) {
                 ))}
 
                 {!isLoading && sortedResults.length === 0 && (
-                  <div className="text-center py-12 bg-white rounded-xl shadow-sm border border-gray-100">
+                  <div className="text-center py-12 bg-white rounded-lg shadow-sm border border-gray-100">
                     <p className="text-lg font-medium text-gray-900">
                       {dictionary.common?.no_results || "Nenhum resultado encontrado"}
                     </p>

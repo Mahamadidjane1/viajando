@@ -7,67 +7,28 @@ import type { z } from "zod"
 import Stripe from "stripe"
 import { bookingSchema } from "@/lib/validations/booking"
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2024-11-20.acacia",
-})
+function getStripeClient() {
+  if (!process.env.STRIPE_SECRET_KEY) return null
+
+  return new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: "2026-05-27.dahlia",
+  })
+}
 
 export async function createBooking(data: z.infer<typeof bookingSchema>) {
   const session = await auth()
 
-  if (!session || !session.user || !session.user.id) {
-    return { error: "Utilizador não autenticado" }
+  if (!session?.user?.id) {
+    return { error: "Utilizador nao autenticado" }
   }
 
   const validated = bookingSchema.safeParse(data)
 
   if (!validated.success) {
-    return { error: "Dados inválidos" }
+    return { error: "Dados invalidos" }
   }
 
   try {
-    const booking = await prisma.booking.create({
-      data: {
-        userId: session.user.id,
-        flightOfferId: validated.data.flightOfferId,
-        provider: "amadeus",
-        origin: validated.data.origin,
-        destination: validated.data.destination,
-        departureDate: new Date(validated.data.departureDate),
-        arrivalDate: new Date(validated.data.arrivalDate),
-        carrierCode: validated.data.carrierCode,
-        duration: validated.data.duration,
-        amount: validated.data.amount,
-        currency: validated.data.currency,
-        passengers: validated.data.passengers,
-        status: "PENDING",
-      },
-    })
-
-    revalidatePath("/dashboard")
-    revalidatePath("/admin/bookings")
-
-    return { success: true, bookingId: booking.id }
-  } catch (error) {
-    console.error("[v0] Error creating booking:", error)
-    return { error: "Falha ao processar a reserva" }
-  }
-}
-
-export async function createBookingWithStripe(data: z.infer<typeof bookingSchema>) {
-  const session = await auth()
-
-  if (!session || !session.user || !session.user.id) {
-    return { error: "Utilizador não autenticado. Por favor, faça login." }
-  }
-
-  const validated = bookingSchema.safeParse(data)
-
-  if (!validated.success) {
-    return { error: "Dados inválidos" }
-  }
-
-  try {
-    // Create booking with PENDING status
     const booking = await prisma.booking.create({
       data: {
         userId: session.user.id,
@@ -76,7 +37,7 @@ export async function createBookingWithStripe(data: z.infer<typeof bookingSchema
         origin: validated.data.origin,
         destination: validated.data.destination,
         departureDate: new Date(validated.data.departureDate),
-        arrivalDate: new Date(validated.data.departureDate), // Same day for now
+        arrivalDate: new Date(validated.data.departureDate),
         carrierCode: "VJ",
         duration: "2h 15m",
         amount: validated.data.price,
@@ -86,7 +47,55 @@ export async function createBookingWithStripe(data: z.infer<typeof bookingSchema
       },
     })
 
-    // Create Stripe checkout session
+    revalidatePath("/dashboard")
+    revalidatePath("/admin/bookings")
+
+    return { success: true, bookingId: booking.id }
+  } catch (error) {
+    console.error("[booking] Error creating booking:", error)
+    return { error: "Falha ao processar a reserva" }
+  }
+}
+
+export async function createBookingWithStripe(data: z.infer<typeof bookingSchema>) {
+  const session = await auth()
+
+  if (!session?.user?.id) {
+    return { error: "Utilizador nao autenticado. Por favor, faca login." }
+  }
+
+  const validated = bookingSchema.safeParse(data)
+
+  if (!validated.success) {
+    return { error: "Dados invalidos" }
+  }
+
+  try {
+    const stripe = getStripeClient()
+    if (!stripe) {
+      return { error: "Stripe nao esta configurado" }
+    }
+
+    const booking = await prisma.booking.create({
+      data: {
+        userId: session.user.id,
+        flightOfferId: `${validated.data.origin}-${validated.data.destination}-${Date.now()}`,
+        provider: "viajando",
+        origin: validated.data.origin,
+        destination: validated.data.destination,
+        departureDate: new Date(validated.data.departureDate),
+        arrivalDate: new Date(validated.data.departureDate),
+        carrierCode: "VJ",
+        duration: "2h 15m",
+        amount: validated.data.price,
+        currency: "EUR",
+        passengers: validated.data.passenger,
+        status: "PENDING",
+      },
+    })
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+
     const checkoutSession = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       line_items: [
@@ -94,17 +103,17 @@ export async function createBookingWithStripe(data: z.infer<typeof bookingSchema
           price_data: {
             currency: "eur",
             product_data: {
-              name: `Voo ${validated.data.origin} → ${validated.data.destination}`,
+              name: `Voo ${validated.data.origin} -> ${validated.data.destination}`,
               description: `Viagem para ${validated.data.destination} em ${validated.data.departureDate}`,
             },
-            unit_amount: Math.round(validated.data.price * 100), // Convert to cents
+            unit_amount: Math.round(validated.data.price * 100),
           },
           quantity: 1,
         },
       ],
       mode: "payment",
-      success_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/checkout/success?session_id={CHECKOUT_SESSION_ID}&booking_id=${booking.id}`,
-      cancel_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/checkout/cancel`,
+      success_url: `${appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}&booking_id=${booking.id}`,
+      cancel_url: `${appUrl}/checkout/cancel`,
       metadata: {
         bookingId: booking.id,
         userId: session.user.id,
@@ -113,7 +122,7 @@ export async function createBookingWithStripe(data: z.infer<typeof bookingSchema
 
     return { success: true, checkoutUrl: checkoutSession.url, bookingId: booking.id }
   } catch (error) {
-    console.error("[v0] Error creating booking:", error)
+    console.error("[booking] Error creating checkout:", error)
     return { error: "Falha ao processar a reserva. Por favor, tente novamente." }
   }
 }
@@ -121,8 +130,8 @@ export async function createBookingWithStripe(data: z.infer<typeof bookingSchema
 export async function getUserBookings() {
   const session = await auth()
 
-  if (!session || !session.user || !session.user.id) {
-    return { error: "Não autenticado" }
+  if (!session?.user?.id) {
+    return { error: "Nao autenticado" }
   }
 
   try {
@@ -133,7 +142,7 @@ export async function getUserBookings() {
 
     return { success: true, bookings }
   } catch (error) {
-    console.error("[v0] Error fetching bookings:", error)
+    console.error("[booking] Error fetching bookings:", error)
     return { error: "Falha ao buscar reservas" }
   }
 }
@@ -141,8 +150,8 @@ export async function getUserBookings() {
 export async function getAllBookings() {
   const session = await auth()
 
-  if (!session || !session.user || session.user.role !== "ADMIN") {
-    return { error: "Sem permissão" }
+  if (!session?.user || session.user.role !== "ADMIN") {
+    return { error: "Sem permissao" }
   }
 
   try {
@@ -160,7 +169,7 @@ export async function getAllBookings() {
 
     return { success: true, bookings }
   } catch (error) {
-    console.error("[v0] Error fetching all bookings:", error)
+    console.error("[booking] Error fetching all bookings:", error)
     return { error: "Falha ao buscar reservas" }
   }
 }
@@ -168,8 +177,8 @@ export async function getAllBookings() {
 export async function getAdminStats() {
   const session = await auth()
 
-  if (!session || !session.user || session.user.role !== "ADMIN") {
-    return { error: "Sem permissão" }
+  if (!session?.user || session.user.role !== "ADMIN") {
+    return { error: "Sem permissao" }
   }
 
   try {
@@ -193,7 +202,7 @@ export async function getAdminStats() {
       },
     }
   } catch (error) {
-    console.error("[v0] Error fetching admin stats:", error)
-    return { error: "Falha ao buscar estatísticas" }
+    console.error("[booking] Error fetching admin stats:", error)
+    return { error: "Falha ao buscar estatisticas" }
   }
 }

@@ -10,23 +10,15 @@ export default async function Home({ params }: { params: { lang: Locale } }) {
 
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Hero Section */}
-      <section className="relative bg-primary py-20 md:py-32 overflow-hidden">
-        {/* Abstract Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-secondary blur-3xl"></div>
-          <div className="absolute top-1/2 -left-24 w-72 h-72 rounded-full bg-white blur-3xl"></div>
-        </div>
-
+      <section className="relative overflow-hidden border-b bg-primary py-16 md:py-24">
         <div className="container mx-auto px-4 relative z-10">
           <div className="max-w-3xl mx-auto text-center mb-12">
             <h1 className="text-4xl md:text-6xl font-bold text-white mb-6 tracking-tight">
               {dict.home.hero.title} <span className="text-secondary">{dict.home.hero.titleHighlight}</span>
             </h1>
-            <p className="text-lg md:text-xl text-blue-100 mb-8">{dict.home.hero.subtitle}</p>
+            <p className="text-lg md:text-xl text-primary-foreground/80 mb-8">{dict.home.hero.subtitle}</p>
           </div>
 
-          {/* Search Widget */}
           <SearchWidget lang={params.lang} />
         </div>
       </section>
@@ -35,21 +27,21 @@ export default async function Home({ params }: { params: { lang: Locale } }) {
       <section className="py-16 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-border/50 flex flex-col items-center text-center">
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-border/50 flex flex-col items-center text-center">
               <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4 text-primary">
                 <Search className="h-6 w-6" />
               </div>
               <h3 className="font-bold text-lg mb-2">{dict.home.features.smartComparison.title}</h3>
               <p className="text-muted-foreground text-sm">{dict.home.features.smartComparison.description}</p>
             </div>
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-border/50 flex flex-col items-center text-center">
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-border/50 flex flex-col items-center text-center">
               <div className="w-12 h-12 bg-secondary/20 rounded-full flex items-center justify-center mb-4 text-secondary-foreground">
                 <Train className="h-6 w-6" />
               </div>
               <h3 className="font-bold text-lg mb-2">{dict.home.features.europeExperts.title}</h3>
               <p className="text-muted-foreground text-sm">{dict.home.features.europeExperts.description}</p>
             </div>
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-border/50 flex flex-col items-center text-center">
+            <div className="bg-white p-6 rounded-lg shadow-sm border border-border/50 flex flex-col items-center text-center">
               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4 text-green-700">
                 <div className="font-bold text-lg">€</div>
               </div>
@@ -75,7 +67,7 @@ export default async function Home({ params }: { params: { lang: Locale } }) {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {/* Destination Card 1 */}
-            <div className="group relative overflow-hidden rounded-xl aspect-[4/5] cursor-pointer">
+            <div className="group relative overflow-hidden rounded-lg aspect-[4/5] cursor-pointer">
               <Image
                 src="/lisbon-portugal-tram-sunny-street.jpg"
                 alt="Lisboa"
@@ -93,7 +85,7 @@ export default async function Home({ params }: { params: { lang: Locale } }) {
             </div>
 
             {/* Destination Card 2 */}
-            <div className="group relative overflow-hidden rounded-xl aspect-[4/5] cursor-pointer">
+            <div className="group relative overflow-hidden rounded-lg aspect-[4/5] cursor-pointer">
               <Image
                 src="/porto-portugal-river-bridge.jpg"
                 alt="Porto"
@@ -111,7 +103,7 @@ export default async function Home({ params }: { params: { lang: Locale } }) {
             </div>
 
             {/* Destination Card 3 */}
-            <div className="group relative overflow-hidden rounded-xl aspect-[4/5] cursor-pointer">
+            <div className="group relative overflow-hidden rounded-lg aspect-[4/5] cursor-pointer">
               <Image
                 src="/madrid-spain-plaza-mayor.jpg"
                 alt="Madrid"
@@ -129,7 +121,7 @@ export default async function Home({ params }: { params: { lang: Locale } }) {
             </div>
 
             {/* Destination Card 4 */}
-            <div className="group relative overflow-hidden rounded-xl aspect-[4/5] cursor-pointer">
+            <div className="group relative overflow-hidden rounded-lg aspect-[4/5] cursor-pointer">
               <Image
                 src="/paris-france-eiffel-tower.jpg"
                 alt="Paris"
@@ -183,7 +175,7 @@ export default async function Home({ params }: { params: { lang: Locale } }) {
                 rating: 4,
               },
             ].map((testimonial, i) => (
-              <div key={i} className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <div key={i} className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
                 <div className="flex gap-1 mb-4">
                   {[...Array(5)].map((_, i) => (
                     <Star
