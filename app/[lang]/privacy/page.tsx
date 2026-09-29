@@ -1,10 +1,7 @@
-import { SiteHeader } from "@/components/site-header"
-import { SiteFooter } from "@/components/site-footer"
 
 export default function PrivacyPage() {
   return (
     <div className="flex min-h-screen flex-col">
-      <SiteHeader />
       <main className="flex-1">
         <div className="container max-w-3xl py-12 md:py-24">
           <h1 className="mb-8 text-3xl font-bold tracking-tighter sm:text-4xl">Política de Privacidade</h1>
@@ -44,7 +41,6 @@ export default function PrivacyPage() {
           </div>
         </div>
       </main>
-      <SiteFooter />
     </div>
   )
 }

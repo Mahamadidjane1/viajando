@@ -1,119 +1,59 @@
-import { RevenueChart } from "@/components/revenue-chart"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { auth } from "@/auth"
-import { redirect } from "next/navigation"
-import { getAdminStats, getAllBookings } from "@/app/actions/booking-actions"
-import { DollarSign, Users, CreditCard, Activity } from "lucide-react"
+import Link from "next/link"
+import { Activity, CreditCard, Euro, Users } from "lucide-react"
+import { prisma } from "@/lib/db"
+import { requireAdmin } from "@/lib/session"
+import { formatMoney } from "@/lib/money"
+import { AdminBookingsTable } from "@/components/admin-bookings-table"
 
 export default async function AdminDashboardPage() {
-  const session = await auth()
+  await requireAdmin()
+  const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
-  if (!session || !session.user || session.user.role !== "ADMIN") {
-    redirect("/")
-  }
+  const [revenue, revenue30d, paidCount, totalUsers, searches30d, recent] = await Promise.all([
+    prisma.booking.aggregate({ where: { status: "PAID" }, _sum: { amountCents: true } }),
+    prisma.booking.aggregate({ where: { status: "PAID", paidAt: { gte: since } }, _sum: { amountCents: true } }),
+    prisma.booking.count({ where: { status: "PAID" } }),
+    prisma.user.count(),
+    prisma.searchLog.count({ where: { createdAt: { gte: since } } }),
+    prisma.booking.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 10,
+      include: { user: { select: { name: true, email: true } } },
+    }),
+  ])
 
-  const statsResult = await getAdminStats()
-  const bookingsResult = await getAllBookings()
-
-  const stats = statsResult.success ? statsResult.stats : null
-  const bookings = bookingsResult.success ? bookingsResult.bookings : []
+  const cards = [
+    { label: "Receita total", value: formatMoney(revenue._sum.amountCents ?? 0), icon: Euro },
+    { label: "Receita (30 dias)", value: formatMoney(revenue30d._sum.amountCents ?? 0), icon: Activity },
+    { label: "Reservas pagas", value: paidCount.toLocaleString("pt-PT"), icon: CreditCard },
+    { label: "Utilizadores", value: totalUsers.toLocaleString("pt-PT"), icon: Users },
+  ]
 
   return (
-    <div className="grid auto-rows-max items-start gap-4 md:gap-8 lg:col-span-2">
-      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Receita Total</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">€{stats?.totalRevenue.toFixed(2) || "0.00"}</div>
-            <p className="text-xs text-muted-foreground">De {stats?.paidBookings || 0} reservas pagas</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Utilizadores</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalUsers || 0}</div>
-            <p className="text-xs text-muted-foreground">Utilizadores registados</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total de Reservas</CardTitle>
-            <CreditCard className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.totalBookings || 0}</div>
-            <p className="text-xs text-muted-foreground">{stats?.paidBookings || 0} confirmadas</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Taxa de Conversão</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {stats?.totalBookings ? ((stats.paidBookings / stats.totalBookings) * 100).toFixed(1) : "0"}%
+    <div className="space-y-8">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.map((card) => (
+          <div key={card.label} className="rounded-lg border bg-background p-5">
+            <div className="flex items-center justify-between text-sm text-muted-foreground">
+              {card.label}
+              <card.icon className="h-4 w-4" aria-hidden />
             </div>
-            <p className="text-xs text-muted-foreground">Das reservas iniciadas</p>
-          </CardContent>
-        </Card>
+            <div className="mt-2 text-2xl font-bold">{card.value}</div>
+          </div>
+        ))}
       </div>
 
-      <div className="grid gap-4 md:gap-8 lg:grid-cols-2 xl:grid-cols-3">
-        <Card className="xl:col-span-2">
-          <CardHeader className="flex flex-row items-center">
-            <div className="grid gap-2">
-              <CardTitle>Receita Total</CardTitle>
-              <CardDescription>Receita dos últimos 30 dias.</CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <RevenueChart />
-          </CardContent>
-        </Card>
+      <p className="text-sm text-muted-foreground">{searches30d.toLocaleString("pt-PT")} pesquisas nos últimos 30 dias.</p>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Atividade Recente</CardTitle>
-            <CardDescription>Últimas reservas e registos.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {bookings.slice(0, 5).map((booking) => (
-                <div key={booking.id} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
-                      {booking.user.name?.[0] || "U"}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{booking.user.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {booking.origin} → {booking.destination}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium">€{booking.amount.toFixed(2)}</p>
-                    <p className="text-xs text-muted-foreground">{booking.status}</p>
-                  </div>
-                </div>
-              ))}
-              {bookings.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">Nenhuma atividade recente</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Reservas recentes</h2>
+          <Link href="/admin/bookings" className="text-sm text-primary hover:underline">
+            Ver todas
+          </Link>
+        </div>
+        <AdminBookingsTable bookings={recent} />
+      </section>
     </div>
   )
 }

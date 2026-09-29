@@ -1,38 +1,44 @@
 import Link from "next/link"
+import { redirect } from "next/navigation"
+import { auth } from "@/auth"
+import { AuthCard } from "@/components/auth/auth-card"
 import { RegisterForm } from "@/components/auth/register-form"
-import { SiteHeader } from "@/components/site-header"
-import { SiteFooter } from "@/components/site-footer"
+import { safeCallbackUrl } from "@/lib/session"
+import type { Locale } from "@/i18n-config"
 
-export default function RegisterPage() {
+export const metadata = { title: "Criar conta | Viajando" }
+
+export default async function RegisterPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ lang: Locale }>
+  searchParams: Promise<{ callbackUrl?: string }>
+}) {
+  const { lang } = await params
+  const callbackUrl = safeCallbackUrl((await searchParams).callbackUrl, "") || undefined
+
+  const session = await auth()
+  if (session?.user) redirect(callbackUrl ?? `/${lang}/dashboard`)
+
+  const loginHref = `/${lang}/login${callbackUrl ? `?callbackUrl=${encodeURIComponent(callbackUrl)}` : ""}`
+
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <SiteHeader />
-
-      <main className="flex-1 flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-          <div className="p-8 space-y-6">
-            <div className="text-center space-y-2">
-              <h1 className="text-2xl font-bold text-gray-900">Criar Conta</h1>
-              <p className="text-sm text-gray-500">Junte-se a nós e comece a viajar com vantagens</p>
-            </div>
-
-            <RegisterForm />
-
-            <div className="text-center text-sm text-gray-500">
-              Já tem conta?{" "}
-              <Link href="/login" className="text-primary font-medium hover:underline">
-                Entrar agora
-              </Link>
-            </div>
-          </div>
-
-          <div className="bg-gray-50 p-4 text-center text-xs text-gray-500 border-t border-gray-100">
-            Ao registar-se, aceita os nossos Termos e Condições e Política de Privacidade.
-          </div>
-        </div>
-      </main>
-
-      <SiteFooter />
-    </div>
+    <AuthCard
+      lang={lang}
+      title="Criar conta"
+      subtitle="Registe-se para reservar e acompanhar as suas viagens"
+      callbackUrl={callbackUrl}
+      footer={
+        <>
+          Já tem conta?{" "}
+          <Link href={loginHref} className="font-medium text-primary hover:underline">
+            Entrar
+          </Link>
+        </>
+      }
+    >
+      <RegisterForm lang={lang} callbackUrl={callbackUrl} />
+    </AuthCard>
   )
 }

@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { registerUser } from "@/app/actions/auth-actions"
 import { Loader2 } from "lucide-react"
 
-export function RegisterForm({ lang }: { lang: string }) {
+export function RegisterForm({ lang, callbackUrl }: { lang: string; callbackUrl?: string }) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState("")
@@ -36,8 +36,7 @@ export function RegisterForm({ lang }: { lang: string }) {
       if (result.error) {
         setError(result.error)
       } else if (result.success) {
-        // Redirect to dashboard after successful registration
-        router.push(`/${lang}/dashboard`)
+        router.push(result.redirectTo || `/${lang}/dashboard`)
         router.refresh()
       }
     } catch (err) {
@@ -49,26 +48,43 @@ export function RegisterForm({ lang }: { lang: string }) {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
+      {callbackUrl && <input type="hidden" name="callbackUrl" value={callbackUrl} />}
       <div className="space-y-2">
         <Label htmlFor="name">Nome Completo</Label>
-        <Input id="name" name="name" placeholder="João Silva" required disabled={isLoading} />
+        <Input id="name" name="name" autoComplete="name" required minLength={2} disabled={isLoading} />
       </div>
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
-        <Input id="email" name="email" type="email" placeholder="seu@email.com" required disabled={isLoading} />
+        <Input id="email" name="email" type="email" autoComplete="email" required disabled={isLoading} />
       </div>
       <div className="space-y-2">
         <Label htmlFor="password">Password</Label>
-        <Input id="password" name="password" type="password" required disabled={isLoading} />
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          autoComplete="new-password"
+          required
+          minLength={8}
+          aria-describedby="password-hint"
+          disabled={isLoading}
+        />
+        <p id="password-hint" className="text-xs text-gray-500">
+          Mínimo 8 caracteres, com letras e números.
+        </p>
       </div>
       <div className="space-y-2">
         <Label htmlFor="confirmPassword">Confirmar Password</Label>
-        <Input id="confirmPassword" name="confirmPassword" type="password" required disabled={isLoading} />
+        <Input id="confirmPassword" name="confirmPassword" type="password" autoComplete="new-password" required disabled={isLoading} />
       </div>
 
-      {error && <div className="text-sm text-red-500 font-medium text-center bg-red-50 p-2 rounded">{error}</div>}
+      {error && (
+        <div role="alert" className="rounded bg-red-50 p-2 text-center text-sm font-medium text-red-600">
+          {error}
+        </div>
+      )}
 
-      <Button className="w-full h-11 mt-4 bg-primary hover:bg-primary/90" disabled={isLoading}>
+      <Button type="submit" className="mt-4 h-11 w-full" disabled={isLoading}>
         {isLoading ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />A criar conta...

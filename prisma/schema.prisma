@@ -7,6 +7,21 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
+enum BookingStatus {
+  PENDING // reserva criada, checkout ainda nao concluido
+  AWAITING_PAYMENT // checkout concluido com metodo assincrono (ex.: Multibanco)
+  PAID // pagamento confirmado pelo Stripe
+  FAILED // pagamento falhou
+  EXPIRED // checkout expirou sem pagamento
+  CANCELLED
+  REFUNDED
+}
+
 // Modelos para NextAuth.js
 model Account {
   id                String  @id @default(cuid())
@@ -35,14 +50,22 @@ model Session {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
 model User {
   id            String    @id @default(cuid())
   name          String?
   email         String?   @unique
   emailVerified DateTime?
   image         String?
-  password      String?   // Para credenciais manuais
-  role          String    @default("USER") // USER, ADMIN
+  password      String? // hash bcrypt para login com credenciais
+  role          Role      @default(USER)
   accounts      Account[]
   sessions      Session[]
   bookings      Booking[]
@@ -51,33 +74,49 @@ model User {
 }
 
 model Booking {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id])
-  
-  // Detalhes da Viagem
-  flightOfferId String?  // ID do Amadeus
-  provider      String   // 'amadeus', 'flixbus', etc
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  // Detalhes da viagem (copiados da oferta validada no servidor)
+  provider      String // 'amadeus' | 'demo'
+  providerRef   String? // id da oferta no fornecedor
+  pnr           String? // localizador emitido pelo fornecedor
+  transportType String   @default("flight")
   origin        String
   destination   String
   departureDate DateTime
   arrivalDate   DateTime
   duration      String
   carrierCode   String
-  
-  // Detalhes Financeiros
-  amount        Float
-  currency      String   @default("EUR")
-  paymentId     String?  // ID do Stripe/Pagamento
-  status        String   @default("PENDING") // PENDING, PAID, CANCELLED, FAILED
-  
-  // Dados dos Passageiros (Armazenado como JSON para flexibilidade)
-  passengers    Json
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  carrierName   String?
+  offerSnapshot Json // oferta completa no momento da compra
 
-  @@index([userId])
+  // Detalhes financeiros (sempre em centimos para evitar erros de arredondamento)
+  amountCents     Int
+  currency        String        @default("EUR")
+  status          BookingStatus @default(PENDING)
+  stripeSessionId String?       @unique
+  paymentIntentId String?       @unique
+  paidAt          DateTime?
+  expiresAt       DateTime?
+  locale          String        @default("pt")
+
+  // Dados dos passageiros
+  passengers Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status, expiresAt])
+}
+
+// Eventos de webhook ja processados (garante idempotencia)
+model WebhookEvent {
+  id          String   @id // id do evento no Stripe
+  type        String
+  processedAt DateTime @default(now())
 }
 
 model SearchLog {
@@ -86,7 +125,10 @@ model SearchLog {
   destination String
   date        DateTime
   source      String
+  resultCount Int      @default(0)
   latencyMs   Int
   ipHash      String?
   createdAt   DateTime @default(now())
+
+  @@index([createdAt])
 }

@@ -1,47 +1,59 @@
-import { headers } from "next/headers"
 import { NextResponse } from "next/server"
+import type Stripe from "stripe"
 import { prisma } from "@/lib/db"
-import Stripe from "stripe"
-
-function getStripeClient() {
-  if (!process.env.STRIPE_SECRET_KEY) return null
-
-  return new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: "2026-05-27.dahlia",
-  })
-}
+import { getStripe } from "@/lib/stripe"
+import { applyStripeEvent } from "@/lib/payments"
+import { sendBookingConfirmation } from "@/lib/email"
 
 export async function POST(req: Request) {
-  const stripe = getStripeClient()
-  if (!stripe || !process.env.STRIPE_WEBHOOK_SECRET) {
+  const stripe = getStripe()
+  const secret = process.env.STRIPE_WEBHOOK_SECRET
+  if (!stripe || !secret) {
     return new NextResponse("Stripe webhook is not configured", { status: 503 })
   }
 
-  const body = await req.text()
-  const signature = (await headers()).get("Stripe-Signature") as string
+  const signature = req.headers.get("stripe-signature")
+  if (!signature) return new NextResponse("Missing signature", { status: 400 })
 
   let event: Stripe.Event
+  try {
+    event = stripe.webhooks.constructEvent(await req.text(), signature, secret)
+  } catch {
+    return new NextResponse("Invalid signature", { status: 400 })
+  }
 
   try {
-    event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET)
-  } catch (error: any) {
-    return new NextResponse(`Webhook Error: ${error.message}`, { status: 400 })
-  }
+    const outcome = await applyStripeEvent(prisma, event)
 
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session
-    const bookingId = session.metadata?.bookingId
-
-    if (bookingId) {
-      await prisma.booking.update({
-        where: { id: bookingId },
-        data: {
-          status: "PAID",
-          paymentId: session.payment_intent as string,
-        },
-      })
+    if (outcome.becamePaid && outcome.bookingId) {
+      await notifyPaid(outcome.bookingId)
     }
-  }
 
-  return new NextResponse(null, { status: 200 })
+    return NextResponse.json({ received: true, duplicate: outcome.duplicate ?? false })
+  } catch (error) {
+    // 500 faz o Stripe repetir o envio mais tarde
+    console.error(`[stripe-webhook] Failed to process ${event.type} ${event.id}:`, error)
+    return new NextResponse("Webhook handler failed", { status: 500 })
+  }
+}
+
+async function notifyPaid(bookingId: string) {
+  const booking = await prisma.booking.findUnique({ where: { id: bookingId } })
+  if (!booking) return
+
+  const [passenger] = booking.passengers as Array<{ firstName: string; lastName: string; email: string }>
+  if (!passenger?.email) return
+
+  await sendBookingConfirmation({
+    id: booking.id,
+    origin: booking.origin,
+    destination: booking.destination,
+    departureDate: booking.departureDate,
+    carrierName: booking.carrierName,
+    amountCents: booking.amountCents,
+    currency: booking.currency,
+    locale: booking.locale,
+    email: passenger.email,
+    passengerName: `${passenger.firstName} ${passenger.lastName}`,
+  })
 }

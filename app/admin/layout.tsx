@@ -1,25 +1,39 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { AdminSidebar } from "@/components/admin-sidebar"
-import { AdminHeader } from "@/components/admin-header"
+import Link from "next/link"
+import { requireAdmin } from "@/lib/session"
+import { AdminNav } from "@/components/admin-nav"
 
 export const metadata: Metadata = {
-  title: "Admin Dashboard | Viajando",
-  description: "Manage your travel platform",
+  title: "Administração | Viajando",
+  robots: { index: false, follow: false },
 }
 
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export const dynamic = "force-dynamic"
+
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  const admin = await requireAdmin()
+
   return (
-    <div className="flex min-h-screen w-full flex-col bg-muted/40 md:flex-row">
-      <AdminSidebar />
-      <div className="flex flex-col sm:gap-4 sm:py-4 sm:pl-14 md:w-full">
-        <AdminHeader />
-        <main className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">{children}</main>
-      </div>
+    <div className="min-h-screen bg-muted/40">
+      <header className="border-b bg-background">
+        <div className="container mx-auto flex h-14 items-center justify-between gap-4 px-4">
+          <div className="flex items-center gap-6">
+            <Link href="/admin" className="flex items-center gap-2 font-bold text-primary">
+              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-xs text-primary-foreground">V</span>
+              Admin
+            </Link>
+            <AdminNav />
+          </div>
+          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <span className="hidden sm:inline">{admin.email}</span>
+            <Link href="/pt" className="hover:text-foreground">
+              Ver site
+            </Link>
+          </div>
+        </div>
+      </header>
+      <main className="container mx-auto px-4 py-8">{children}</main>
     </div>
   )
 }

@@ -2,18 +2,11 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { ArrowRightLeft, Bus, CalendarDays, Loader2, Plane, Search, Train } from "lucide-react"
+import { ArrowRightLeft, CalendarDays, Loader2, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { cn } from "@/lib/utils"
 import { airports } from "@/lib/airports"
 import type { Locale } from "@/i18n-config"
-
-const transportModes = [
-  { value: "flight", label: "Voos", icon: Plane },
-  { value: "train", label: "Comboios", icon: Train },
-  { value: "bus", label: "Autocarros", icon: Bus },
-] as const
 
 export function SearchWidget({ lang }: { lang: Locale }) {
   const router = useRouter()
@@ -21,8 +14,11 @@ export function SearchWidget({ lang }: { lang: Locale }) {
   const [origin, setOrigin] = React.useState("")
   const [destination, setDestination] = React.useState("")
   const [date, setDate] = React.useState("")
-  const [mode, setMode] = React.useState<(typeof transportModes)[number]["value"]>("flight")
   const [error, setError] = React.useState("")
+  const [today, setToday] = React.useState("")
+
+  // calculado no cliente para respeitar o fuso horario do utilizador
+  React.useEffect(() => setToday(new Date().toLocaleDateString("sv-SE")), [])
 
   const isSameRoute = origin !== "" && origin === destination
   const isFormValid = origin !== "" && destination !== "" && date !== "" && !isSameRoute
@@ -39,6 +35,11 @@ export function SearchWidget({ lang }: { lang: Locale }) {
       return
     }
 
+    if (today && date < today) {
+      setError("A data de partida não pode ser no passado.")
+      return
+    }
+
     if (isSameRoute) {
       setError("Escolha uma origem e um destino diferentes.")
       return
@@ -48,7 +49,6 @@ export function SearchWidget({ lang }: { lang: Locale }) {
     setIsLoading(true)
 
     const searchParams = new URLSearchParams({
-      type: mode,
       origin,
       destination,
       date,
@@ -62,31 +62,6 @@ export function SearchWidget({ lang }: { lang: Locale }) {
       aria-label="Pesquisa de viagens"
       className="mx-auto w-full max-w-5xl rounded-lg border border-border bg-background p-4 shadow-sm md:p-5"
     >
-      <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Tipo de transporte">
-        {transportModes.map((item) => {
-          const Icon = item.icon
-          const isActive = mode === item.value
-
-          return (
-            <button
-              key={item.value}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              onClick={() => setMode(item.value)}
-              className={cn(
-                "inline-flex h-10 items-center gap-2 rounded-md border px-3 text-sm font-medium transition-colors",
-                isActive
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:text-foreground",
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {item.label}
-            </button>
-          )
-        })}
-      </div>
 
       <div className="grid gap-3 md:grid-cols-[1fr_auto_1fr_180px_150px] md:items-end">
         <div className="space-y-1.5">
@@ -158,6 +133,7 @@ export function SearchWidget({ lang }: { lang: Locale }) {
             <Input
               id="departure-date"
               type="date"
+              min={today}
               value={date}
               onChange={(event) => {
                 setDate(event.target.value)

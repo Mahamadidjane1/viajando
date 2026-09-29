@@ -4,15 +4,13 @@ import Credentials from "next-auth/providers/credentials"
 import Google from "next-auth/providers/google"
 import { prisma } from "@/lib/db"
 import bcrypt from "bcryptjs"
-import { z } from "zod"
+import { loginSchema } from "@/lib/auth-helpers"
+import { i18n } from "@/i18n-config"
 
-const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
-})
+export const isGoogleAuthEnabled = Boolean(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET)
 
 const providers = [
-  ...(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET
+  ...(isGoogleAuthEnabled
     ? [
         Google({
           clientId: process.env.AUTH_GOOGLE_ID,
@@ -26,43 +24,45 @@ const providers = [
       password: { label: "Password", type: "password" },
     },
     authorize: async (credentials) => {
-      const parsedCredentials = loginSchema.safeParse(credentials)
+      const parsed = loginSchema.safeParse(credentials)
+      if (!parsed.success) return null
 
-      if (parsedCredentials.success) {
-        const { email, password } = parsedCredentials.data
-        const user = await prisma.user.findUnique({ where: { email } })
+      const user = await prisma.user.findUnique({ where: { email: parsed.data.email } })
+      if (!user?.password) return null
 
-        if (!user || !user.password) return null
+      const passwordsMatch = await bcrypt.compare(parsed.data.password, user.password)
+      if (!passwordsMatch) return null
 
-        const passwordsMatch = await bcrypt.compare(password, user.password)
-        if (passwordsMatch) return user
-      }
-
-      return null
+      return { id: user.id, name: user.name, email: user.email, image: user.image, role: user.role }
     },
   }),
 ]
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: 30 * 24 * 60 * 60 },
+  trustHost: true,
   pages: {
-    signIn: "/login",
-    error: "/error",
+    signIn: `/${i18n.defaultLocale}/login`,
   },
   providers,
   callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.role = (user as typeof user & { role?: string }).role
+    async jwt({ token, user, trigger }) {
+      if (user?.id) {
         token.id = user.id
+        token.role = user.role ?? "USER"
+      }
+      // Recarrega o papel quando a sessao e atualizada (ex.: promovido a admin)
+      if (trigger === "update" && token.id) {
+        const fresh = await prisma.user.findUnique({ where: { id: token.id }, select: { role: true } })
+        if (fresh) token.role = fresh.role
       }
       return token
     },
     async session({ session, token }) {
-      if (token && session.user) {
-        session.user.role = token.role as string
-        session.user.id = token.id as string
+      if (session.user) {
+        session.user.id = token.id
+        session.user.role = token.role
       }
       return session
     },

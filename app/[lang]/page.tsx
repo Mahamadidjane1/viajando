@@ -5,8 +5,9 @@ import { SearchWidget } from "@/components/search-widget"
 import { getDictionary } from "@/lib/get-dictionary"
 import type { Locale } from "@/i18n-config"
 
-export default async function Home({ params }: { params: { lang: Locale } }) {
-  const dict = await getDictionary(params.lang)
+export default async function Home({ params }: { params: Promise<{ lang: Locale }> }) {
+  const { lang } = await params
+  const dict = await getDictionary(lang)
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -19,7 +20,7 @@ export default async function Home({ params }: { params: { lang: Locale } }) {
             <p className="text-lg md:text-xl text-primary-foreground/80 mb-8">{dict.home.hero.subtitle}</p>
           </div>
 
-          <SearchWidget lang={params.lang} />
+          <SearchWidget lang={lang} />
         </div>
       </section>
 

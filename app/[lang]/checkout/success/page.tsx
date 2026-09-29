@@ -1,103 +1,128 @@
 import Link from "next/link"
-import { CheckCircle, Download, Home, Mail, Plane } from "lucide-react"
+import { AlertCircle, CheckCircle, Clock, Home, Plane } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { BookingProgress } from "@/components/booking-progress"
+import { prisma } from "@/lib/db"
+import { getStripe } from "@/lib/stripe"
+import { requireUser } from "@/lib/session"
+import { formatMoney } from "@/lib/money"
+import { formatDay, formatTime } from "@/lib/format"
 
-export default function SuccessPage({
+export const metadata = { title: "Estado da reserva | Viajando", robots: { index: false } }
+
+export default async function SuccessPage({
   params,
   searchParams,
 }: {
-  params: { lang: string }
-  searchParams: { session_id?: string; booking_id?: string }
+  params: Promise<{ lang: string }>
+  searchParams: Promise<{ session_id?: string }>
 }) {
+  const { lang } = await params
+  const { session_id: sessionId } = await searchParams
+  const user = await requireUser(lang)
+
+  // A pagina so mostra o que a base de dados e o Stripe confirmam; nunca confia no URL.
+  const booking = sessionId
+    ? await prisma.booking.findFirst({ where: { stripeSessionId: sessionId, userId: user.id } })
+    : null
+
+  if (!booking) {
+    return (
+      <StatusCard
+        lang={lang}
+        tone="error"
+        title="Reserva não encontrada"
+        message="Não encontrámos esta reserva na sua conta. Se foi cobrado, contacte o apoio ao cliente."
+      />
+    )
+  }
+
+  // Se o webhook ainda nao chegou, confirma diretamente no Stripe para mostrar o estado real.
+  let paymentStatus = booking.status
+  if (paymentStatus === "PENDING") {
+    const checkout = await getStripe()?.checkout.sessions.retrieve(sessionId!).catch(() => null)
+    if (checkout?.payment_status === "paid") paymentStatus = "PAID"
+    else if (checkout?.status === "complete") paymentStatus = "AWAITING_PAYMENT"
+  }
+
+  const reference = booking.id.slice(-8).toUpperCase()
+  const isPaid = paymentStatus === "PAID"
+  const isWaiting = paymentStatus === "AWAITING_PAYMENT" || paymentStatus === "PENDING"
+
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
-      <main className="flex-1 container mx-auto px-4 py-12 flex flex-col items-center">
-        <div className="w-full max-w-4xl">
-          <BookingProgress currentStep={3} />
+    <main className="container mx-auto flex flex-1 flex-col items-center bg-gray-50 px-4 py-12">
+      <div className="w-full max-w-4xl">
+        <BookingProgress currentStep={isPaid ? 3 : 2} />
+      </div>
+
+      <div className="mt-4 w-full max-w-2xl overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-lg">
+        <div className={`border-b p-8 text-center ${isPaid ? "border-green-100 bg-green-50" : "border-amber-100 bg-amber-50"}`}>
+          <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full ${isPaid ? "bg-green-100" : "bg-amber-100"}`}>
+            {isPaid ? <CheckCircle className="h-8 w-8 text-green-600" aria-hidden /> : <Clock className="h-8 w-8 text-amber-600" aria-hidden />}
+          </div>
+          <h1 className={`mb-2 text-2xl font-bold ${isPaid ? "text-green-800" : "text-amber-800"}`}>
+            {isPaid ? "Pagamento confirmado!" : isWaiting ? "A aguardar pagamento" : "Pagamento não concluído"}
+          </h1>
+          <p className={isPaid ? "text-green-700" : "text-amber-700"}>
+            {isPaid
+              ? "Enviámos a confirmação para o email do passageiro."
+              : isWaiting
+                ? "Assim que o pagamento for confirmado (ex.: referência Multibanco paga), a reserva fica confirmada automaticamente."
+                : "A reserva não foi paga. Pode fazer uma nova pesquisa."}
+          </p>
         </div>
 
-        <div className="max-w-2xl w-full bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden mt-8">
-          <div className="bg-green-50 p-8 text-center border-b border-green-100">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="w-8 h-8 text-green-600" />
+        <div className="space-y-6 p-8">
+          <dl className="grid grid-cols-2 gap-4 rounded-xl border border-gray-100 bg-gray-50 p-4 text-sm">
+            <div>
+              <dt className="text-gray-500">Referência</dt>
+              <dd className="font-mono text-lg font-bold text-gray-900">{reference}</dd>
             </div>
-            <h1 className="text-2xl font-bold text-green-800 mb-2">Reserva Confirmada!</h1>
-            <p className="text-green-700">A sua viagem está agendada. Enviámos os bilhetes para o seu email.</p>
-          </div>
-
-          <div className="p-8 space-y-8">
-            <div className="flex flex-col md:flex-row justify-between gap-6 p-4 bg-gray-50 rounded-xl border border-gray-100">
-              <div>
-                <div className="text-sm text-gray-500 mb-1">Referência da Reserva</div>
-                <div className="text-xl font-mono font-bold text-gray-900">
-                  #{searchParams.booking_id ? searchParams.booking_id.slice(0, 8).toUpperCase() : "TRV-89245"}
-                </div>
-              </div>
-              <div className="text-right md:text-left">
-                <div className="text-sm text-gray-500 mb-1">Estado</div>
-                <div className="text-lg font-bold text-green-600">CONFIRMADO</div>
-              </div>
+            <div>
+              <dt className="text-gray-500">Total</dt>
+              <dd className="text-lg font-bold text-gray-900">{formatMoney(booking.amountCents, booking.currency, lang)}</dd>
             </div>
-
-            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-              <div className="flex items-start gap-3">
-                <Mail className="w-5 h-5 text-blue-600 mt-0.5" />
-                <div>
-                  <p className="font-semibold text-gray-900">Confirmação enviada</p>
-                  <p className="text-sm text-gray-600">
-                    Enviámos os detalhes da sua reserva e bilhete eletrónico para o seu email.
-                  </p>
-                </div>
-              </div>
+            <div>
+              <dt className="text-gray-500">Viagem</dt>
+              <dd className="font-medium text-gray-900">
+                {booking.origin} → {booking.destination}
+              </dd>
             </div>
-
-            <div className="space-y-4">
-              <h3 className="font-semibold text-gray-900">Próximos Passos</h3>
-              <ul className="space-y-3 text-sm text-gray-600">
-                <li className="flex items-start gap-3">
-                  <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold mt-0.5">
-                    1
-                  </span>
-                  Verifique o seu email para aceder aos bilhetes eletrónicos.
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold mt-0.5">
-                    2
-                  </span>
-                  Faça o download da nossa app para ter os bilhetes sempre à mão.
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="w-5 h-5 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold mt-0.5">
-                    3
-                  </span>
-                  Chegue ao aeroporto com 2 horas de antecedência.
-                </li>
-              </ul>
+            <div>
+              <dt className="text-gray-500">Partida</dt>
+              <dd className="font-medium text-gray-900">
+                {formatDay(booking.departureDate, lang)}, {formatTime(booking.departureDate, lang)}
+              </dd>
             </div>
+          </dl>
 
-            <div className="flex flex-col sm:flex-row gap-4 pt-4">
-              <Button className="flex-1 gap-2" size="lg" asChild>
-                <Link href={`/${params.lang}/dashboard/trips`}>
-                  <Plane className="w-4 h-4" /> Ver Minhas Viagens
-                </Link>
-              </Button>
-              <Button variant="outline" className="flex-1 gap-2 bg-transparent" size="lg">
-                <Download className="w-4 h-4" /> Descarregar Bilhete
-              </Button>
-            </div>
-
-            <div className="text-center pt-4">
-              <Link
-                href={`/${params.lang}`}
-                className="text-sm text-primary hover:underline flex items-center justify-center gap-1"
-              >
-                <Home className="w-3 h-3" /> Voltar à página inicial
+          <div className="flex flex-col gap-4 sm:flex-row">
+            <Button className="flex-1 gap-2" size="lg" asChild>
+              <Link href={`/${lang}/dashboard/trips`}>
+                <Plane className="h-4 w-4" aria-hidden /> As minhas viagens
               </Link>
-            </div>
+            </Button>
+            <Button variant="outline" className="flex-1 gap-2" size="lg" asChild>
+              <Link href={`/${lang}`}>
+                <Home className="h-4 w-4" aria-hidden /> Página inicial
+              </Link>
+            </Button>
           </div>
         </div>
-      </main>
-    </div>
+      </div>
+    </main>
+  )
+}
+
+function StatusCard({ lang, title, message }: { lang: string; tone: "error"; title: string; message: string }) {
+  return (
+    <main className="container mx-auto max-w-xl px-4 py-16 text-center">
+      <AlertCircle className="mx-auto mb-4 h-12 w-12 text-red-400" aria-hidden />
+      <h1 className="mb-2 text-2xl font-bold text-gray-900">{title}</h1>
+      <p className="mb-6 text-gray-600">{message}</p>
+      <Button asChild>
+        <Link href={`/${lang}/dashboard/trips`}>As minhas viagens</Link>
+      </Button>
+    </main>
   )
 }
