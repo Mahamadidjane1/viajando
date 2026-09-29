@@ -32,16 +32,26 @@
 
 ## Application Security Features
 
-- Zod validation for API and form input.
-- Stripe webhook signature verification.
-- Server-side API access for Amadeus credentials.
-- Environment-based configuration.
-- Mock fallback when external providers are unavailable.
+- Prices are never accepted from the browser: checkout receives an opaque offer id, the amount comes from the
+  server-side offer cache and is re-confirmed with the provider; the webhook rejects payments whose amount
+  differs from the booking.
+- Stripe webhook signature verification and idempotency (`WebhookEvent` table); status transitions never
+  move backwards (e.g. PAID cannot become EXPIRED).
+- Protected areas (`/admin`, `/<lang>/dashboard`) are checked in `proxy.ts` and again on every page and
+  server action (a layout-only check does not protect pages in the App Router).
+- Rate limiting on login (per IP and per email), registration, search, checkout and contact form.
+- Passwords hashed with bcrypt (cost 12), minimum 8 characters with letters and numbers.
+- Open-redirect protection on `callbackUrl`.
+- Security headers: HSTS, CSP, X-Frame-Options, nosniff, Referrer-Policy, Permissions-Policy.
+- Environment validation at startup (`instrumentation.ts`).
+- GDPR: users can delete their account; personal data is erased and paid bookings are kept anonymised.
 
 ## Deploy Checklist
 
 - [ ] `.env.local` is not committed.
-- [ ] Required production variables are configured in the hosting provider.
+- [ ] Every variable in `.env.example` is set in the hosting provider.
 - [ ] Old Amadeus keys that appeared in Git history were revoked.
-- [ ] Stripe webhook signing secret is configured.
+- [ ] Stripe webhook endpoint and signing secret configured (see README_SETUP.md).
+- [ ] `KV_REST_API_URL` / `KV_REST_API_TOKEN` set when running more than one instance.
+- [ ] `CRON_SECRET` set and the expiry job scheduled.
 - [ ] `NEXT_PUBLIC_` is only used for values that can be visible in the browser.

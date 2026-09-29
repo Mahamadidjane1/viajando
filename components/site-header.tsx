@@ -3,19 +3,18 @@ import { Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { LanguageSelector } from "@/components/language-selector"
 import { UserMenu } from "@/components/user-menu"
-import { getSession } from "@/lib/auth-session"
+import { auth } from "@/auth"
 import type { Locale } from "@/i18n-config"
 
 function NavLinks({ lang, dictionary, className = "" }: { lang: Locale; dictionary: any; className?: string }) {
   const links = [
-    { href: `/${lang}/search?type=flight`, label: dictionary.navigation.flights },
-    { href: `/${lang}/search?type=train`, label: dictionary.navigation.trains },
-    { href: `/${lang}/search?type=bus`, label: dictionary.navigation.buses },
-    { href: `/${lang}/search?type=hotel`, label: dictionary.navigation.hotels },
+    { href: `/${lang}`, label: dictionary.navigation.flights },
+    { href: `/${lang}/about`, label: "Sobre" },
+    { href: `/${lang}/contact`, label: "Contacto" },
   ]
 
   return (
-    <nav className={className} aria-label="Navegacao principal">
+    <nav className={className} aria-label="Navegação principal">
       {links.map((link) => (
         <Link key={link.href} href={link.href} className="rounded-sm px-1 py-1 transition-colors hover:text-primary">
           {link.label}
@@ -26,7 +25,7 @@ function NavLinks({ lang, dictionary, className = "" }: { lang: Locale; dictiona
 }
 
 export async function SiteHeader({ lang, dictionary }: { lang: Locale; dictionary: any }) {
-  const session = await getSession()
+  const session = await auth()
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">

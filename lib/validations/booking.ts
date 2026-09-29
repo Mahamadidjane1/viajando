@@ -1,23 +1,39 @@
 import { z } from "zod"
+import { i18n } from "@/i18n-config"
+
+const today = () => new Date().toISOString().slice(0, 10)
 
 export const passengerSchema = z.object({
-  firstName: z.string().min(2, "Nome deve ter pelo menos 2 caracteres"),
-  lastName: z.string().min(2, "Apelido deve ter pelo menos 2 caracteres"),
-  email: z.string().email("Email inválido"),
+  firstName: z.string().trim().min(2, "Nome deve ter pelo menos 2 caracteres").max(60),
+  lastName: z.string().trim().min(2, "Apelido deve ter pelo menos 2 caracteres").max(60),
+  email: z.string().trim().toLowerCase().email("Email inválido"),
+  dateOfBirth: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "Indique a data de nascimento")
+    .refine((value) => value < today() && value > "1900-01-01", "Data de nascimento inválida"),
   documentType: z.enum(["passport", "id"], {
-    required_error: "Selecione o tipo de documento",
+    errorMap: () => ({ message: "Selecione o tipo de documento" }),
   }),
-  documentNumber: z.string().min(5, "Número de documento inválido"),
-  phone: z.string().optional(),
+  documentNumber: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z0-9]{5,20}$/, "Número de documento inválido"),
+  phone: z
+    .string()
+    .trim()
+    .regex(/^\+?[0-9 ]{7,20}$/, "Número de telemóvel inválido")
+    .optional()
+    .or(z.literal("")),
 })
 
-export const bookingSchema = z.object({
-  origin: z.string().min(3),
-  destination: z.string().min(3),
-  departureDate: z.string(),
-  price: z.number().positive(),
+/** O cliente envia apenas a oferta escolhida e os dados do passageiro; o preco e decidido no servidor. */
+export const checkoutSchema = z.object({
+  offerId: z.string().uuid(),
+  lang: z.enum(i18n.locales),
   passenger: passengerSchema,
+  acceptTerms: z.literal(true, { errorMap: () => ({ message: "Tem de aceitar os termos e condições" }) }),
 })
 
 export type PassengerFormData = z.infer<typeof passengerSchema>
-export type BookingFormData = z.infer<typeof bookingSchema>
+export type CheckoutInput = z.infer<typeof checkoutSchema>

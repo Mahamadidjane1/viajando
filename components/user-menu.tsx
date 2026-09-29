@@ -1,6 +1,6 @@
 "use client"
 
-import { User, LogOut, Plane, Settings } from "lucide-react"
+import { User, LogOut, Plane, Settings, Shield } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -19,6 +19,7 @@ interface UserMenuProps {
   user: {
     name?: string | null
     email?: string | null
+    role?: string
   }
   lang: Locale
   dictionary: any
@@ -36,7 +37,7 @@ export function UserMenu({ user, lang, dictionary }: UserMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-9 w-9 rounded-full">
+        <Button variant="ghost" className="relative h-9 w-9 rounded-full" aria-label="Menu da conta">
           <Avatar className="h-9 w-9">
             <AvatarFallback className="bg-primary text-primary-foreground">{initials}</AvatarFallback>
           </Avatar>
@@ -63,11 +64,19 @@ export function UserMenu({ user, lang, dictionary }: UserMenuProps) {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link href={`/${lang}/profile`} className="cursor-pointer">
+          <Link href={`/${lang}/dashboard/settings`} className="cursor-pointer">
             <Settings className="mr-2 h-4 w-4" />
-            <span>{dictionary.navigation.profile || "Perfil"}</span>
+            <span>{dictionary.navigation.profile || "Definições"}</span>
           </Link>
         </DropdownMenuItem>
+        {user.role === "ADMIN" && (
+          <DropdownMenuItem asChild>
+            <Link href="/admin" className="cursor-pointer">
+              <Shield className="mr-2 h-4 w-4" />
+              <span>Administração</span>
+            </Link>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
           <form action={logoutUser.bind(null, lang)}>

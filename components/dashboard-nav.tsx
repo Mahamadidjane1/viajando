@@ -2,83 +2,66 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Ticket, Wallet, Settings, LogOut, User, Heart } from "lucide-react"
+import { LayoutDashboard, LogOut, Settings, Ticket, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { logoutUser } from "@/app/actions/auth-actions"
+import type { Locale } from "@/i18n-config"
 
 const NAV_ITEMS = [
-  {
-    title: "Visão Geral",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "As Minhas Viagens",
-    href: "/dashboard/trips",
-    icon: Ticket,
-  },
-  {
-    title: "Favoritos",
-    href: "/dashboard/favorites",
-    icon: Heart,
-  },
-  {
-    title: "Carteira & Cashback",
-    href: "/dashboard/wallet",
-    icon: Wallet,
-  },
-  {
-    title: "Definições",
-    href: "/dashboard/settings",
-    icon: Settings,
-  },
+  { title: "Visão geral", href: "/dashboard", icon: LayoutDashboard },
+  { title: "As minhas viagens", href: "/dashboard/trips", icon: Ticket },
+  { title: "Definições", href: "/dashboard/settings", icon: Settings },
 ]
 
-export function DashboardNav() {
+export function DashboardNav({ lang, user }: { lang: Locale; user: { name: string | null; email: string | null } }) {
   const pathname = usePathname()
 
   return (
-    <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
-      <div className="p-6 border-b border-border">
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-            <User className="w-5 h-5" />
+    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+      <div className="border-b border-border p-6">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <User className="h-5 w-5" aria-hidden />
           </div>
-          <div>
-            <div className="font-bold text-foreground">João Silva</div>
-            <div className="text-xs text-muted-foreground">Membro desde 2023</div>
+          <div className="min-w-0">
+            <div className="truncate font-bold text-foreground">{user.name || "Viajante"}</div>
+            <div className="truncate text-xs text-muted-foreground">{user.email}</div>
           </div>
         </div>
       </div>
 
-      <nav className="p-2 space-y-1">
-        {NAV_ITEMS.map((item) => (
-          <Link key={item.href} href={item.href}>
-            <Button
-              variant="ghost"
+      <nav className="space-y-1 p-2" aria-label="Conta">
+        {NAV_ITEMS.map((item) => {
+          const href = `/${lang}${item.href}`
+          const active = pathname === href
+          return (
+            <Link
+              key={item.href}
+              href={href}
+              aria-current={active ? "page" : undefined}
               className={cn(
-                "w-full justify-start gap-3 h-11",
-                pathname === item.href
-                  ? "bg-primary/5 text-primary font-semibold"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted",
+                "flex h-11 items-center gap-3 rounded-md px-4 text-sm transition-colors",
+                active ? "bg-primary/5 font-semibold text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
-              <item.icon className="w-4 h-4" />
+              <item.icon className="h-4 w-4" aria-hidden />
               {item.title}
-            </Button>
-          </Link>
-        ))}
+            </Link>
+          )
+        })}
       </nav>
 
-      <div className="p-2 border-t border-border mt-2">
+      <form action={logoutUser.bind(null, lang)} className="mt-2 border-t border-border p-2">
         <Button
+          type="submit"
           variant="ghost"
-          className="w-full justify-start gap-3 h-11 text-destructive hover:text-destructive hover:bg-destructive/10"
+          className="h-11 w-full justify-start gap-3 text-destructive hover:bg-destructive/10 hover:text-destructive"
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut className="h-4 w-4" aria-hidden />
           Sair
         </Button>
-      </div>
+      </form>
     </div>
   )
 }

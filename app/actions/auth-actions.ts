@@ -1,80 +1,75 @@
 "use server"
 
 import { prisma } from "@/lib/db"
-import { hashPassword, registerSchema } from "@/lib/auth-helpers"
+import { hashPassword, loginSchema, registerSchema } from "@/lib/auth-helpers"
 import { signIn, signOut } from "@/auth"
 import { AuthError } from "next-auth"
-import type { Locale } from "@/i18n-config"
+import { i18n, type Locale } from "@/i18n-config"
+import { getClientIp, rateLimit, RATE_LIMITS } from "@/lib/rate-limit"
+import { safeCallbackUrl } from "@/lib/session"
 
-export async function registerUser(formData: FormData) {
-  const data = {
-    name: formData.get("name") as string,
-    email: formData.get("email") as string,
-    password: formData.get("password") as string,
-  }
+type AuthResult = { error?: string; fieldErrors?: Record<string, string[] | undefined>; success?: boolean; redirectTo?: string }
 
-  const validated = registerSchema.safeParse(data)
+const TOO_MANY = "Demasiadas tentativas. Aguarde alguns minutos e tente novamente."
+
+export async function registerUser(formData: FormData): Promise<AuthResult> {
+  const ip = await getClientIp()
+  if (!(await rateLimit("register", ip, RATE_LIMITS.register))) return { error: TOO_MANY }
+
+  const validated = registerSchema.safeParse({
+    name: formData.get("name"),
+    email: formData.get("email"),
+    password: formData.get("password"),
+  })
 
   if (!validated.success) {
-    return { error: "Dados inválidos", details: validated.error.errors }
+    const fieldErrors = validated.error.flatten().fieldErrors
+    return { error: Object.values(fieldErrors).flat()[0] ?? "Dados inválidos", fieldErrors }
   }
 
+  const { name, email, password } = validated.data
+
   try {
-    // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { email: validated.data.email },
-    })
-
-    if (existingUser) {
-      return { error: "Email já registado" }
-    }
-
-    // Hash password and create user
-    const hashedPassword = await hashPassword(validated.data.password)
+    const existingUser = await prisma.user.findUnique({ where: { email }, select: { id: true } })
+    if (existingUser) return { error: "Já existe uma conta com este email" }
 
     await prisma.user.create({
-      data: {
-        name: validated.data.name,
-        email: validated.data.email,
-        password: hashedPassword,
-        role: "USER",
-      },
+      data: { name, email, password: await hashPassword(password) },
     })
 
-    await signIn("credentials", {
-      email: validated.data.email,
-      password: validated.data.password,
-      redirect: false,
-    })
-
-    return { success: true }
+    await signIn("credentials", { email, password, redirect: false })
+    return { success: true, redirectTo: safeCallbackUrl(formData.get("callbackUrl"), "") || undefined }
   } catch (error) {
-    console.error("[v0] Registration error:", error)
-    return { error: "Erro ao registar utilizador" }
+    console.error("[auth] Registration error:", error)
+    return { error: "Não foi possível criar a conta. Tente novamente." }
   }
 }
 
-export async function loginUser(formData: FormData) {
-  const email = formData.get("email") as string
-  const password = formData.get("password") as string
+export async function loginUser(formData: FormData): Promise<AuthResult> {
+  const parsed = loginSchema.safeParse({ email: formData.get("email"), password: formData.get("password") })
+  if (!parsed.success) return { error: "Email ou password inválidos" }
+
+  const ip = await getClientIp()
+  const allowed =
+    (await rateLimit("login-ip", ip, RATE_LIMITS.login)) &&
+    (await rateLimit("login-email", parsed.data.email, RATE_LIMITS.login))
+  if (!allowed) return { error: TOO_MANY }
 
   try {
-    await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    })
-
-    return { success: true }
+    await signIn("credentials", { ...parsed.data, redirect: false })
+    return { success: true, redirectTo: safeCallbackUrl(formData.get("callbackUrl"), "") || undefined }
   } catch (error) {
-    if (error instanceof AuthError) {
-      return { error: "Credenciais inválidas" }
-    }
-    console.error("[v0] Login error:", error)
-    return { error: "Erro ao fazer login" }
+    if (error instanceof AuthError) return { error: "Email ou password inválidos" }
+    console.error("[auth] Login error:", error)
+    return { error: "Não foi possível entrar. Tente novamente." }
   }
+}
+
+export async function loginWithGoogle(lang: Locale, callbackUrl?: string) {
+  await signIn("google", { redirectTo: safeCallbackUrl(callbackUrl, `/${lang}/dashboard`) })
 }
 
 export async function logoutUser(lang: Locale) {
-  await signOut({ redirectTo: `/${lang}` })
+  const locale = i18n.locales.includes(lang) ? lang : i18n.defaultLocale
+  await signOut({ redirectTo: `/${locale}` })
 }

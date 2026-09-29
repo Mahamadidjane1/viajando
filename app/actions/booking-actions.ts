@@ -1,208 +1,125 @@
 "use server"
 
+import type { Prisma } from "@prisma/client"
 import { auth } from "@/auth"
 import { prisma } from "@/lib/db"
-import { revalidatePath } from "next/cache"
-import type { z } from "zod"
-import Stripe from "stripe"
-import { bookingSchema } from "@/lib/validations/booking"
+import { getStripe } from "@/lib/stripe"
+import { getAppUrl, isDemoDataEnabled } from "@/lib/env"
+import { confirmFlightPrice } from "@/lib/amadeus-service"
+import { decimalToCents } from "@/lib/money"
+import { formatDuration, getStoredOffer, toPublicOffer } from "@/lib/offers"
+import { rateLimit, RATE_LIMITS } from "@/lib/rate-limit"
+import { checkoutSchema, type CheckoutInput } from "@/lib/validations/booking"
 
-function getStripeClient() {
-  if (!process.env.STRIPE_SECRET_KEY) return null
+/** Tempo que uma reserva pendente fica valida (minimo aceite pelo Stripe Checkout: 30 min). */
+const CHECKOUT_TTL_MINUTES = 30
 
-  return new Stripe(process.env.STRIPE_SECRET_KEY, {
-    apiVersion: "2026-05-27.dahlia",
+const STRIPE_LOCALES = { pt: "pt", en: "en", es: "es", fr: "fr" } as const
+
+type CheckoutResult = { checkoutUrl: string } | { error: string; offerExpired?: boolean }
+
+export async function createCheckout(input: CheckoutInput): Promise<CheckoutResult> {
+  const session = await auth()
+  if (!session?.user?.id) return { error: "Sessão expirada. Entre novamente para continuar." }
+  const userId = session.user.id
+
+  const parsed = checkoutSchema.safeParse(input)
+  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Dados inválidos" }
+  const { offerId, lang, passenger } = parsed.data
+
+  if (!(await rateLimit("checkout", userId, RATE_LIMITS.checkout))) {
+    return { error: "Demasiadas tentativas de pagamento. Aguarde alguns minutos." }
+  }
+
+  const stripe = getStripe()
+  if (!stripe) return { error: "Os pagamentos não estão disponíveis de momento." }
+
+  const offer = await getStoredOffer(offerId)
+  if (!offer) return { error: "Esta oferta expirou. Faça uma nova pesquisa.", offerExpired: true }
+
+  // O preco cobrado e sempre o do servidor; para Amadeus e re-confirmado junto do fornecedor.
+  let amountCents = offer.priceCents
+  if (offer.source === "amadeus") {
+    if (!offer.raw) return { error: "Esta oferta expirou. Faça uma nova pesquisa.", offerExpired: true }
+    const priced = await confirmFlightPrice(offer.raw)
+    const total = priced?.price?.grandTotal ?? priced?.price?.total
+    if (!total) return { error: "Esta tarifa já não está disponível. Escolha outra opção.", offerExpired: true }
+    amountCents = decimalToCents(total)
+  } else if (!isDemoDataEnabled()) {
+    return { error: "Esta oferta já não está disponível.", offerExpired: true }
+  }
+
+  const expiresAt = new Date(Date.now() + CHECKOUT_TTL_MINUTES * 60 * 1000 + 60 * 1000)
+  const booking = await prisma.booking.create({
+    data: {
+      userId,
+      provider: offer.source,
+      providerRef: offer.providerRef,
+      transportType: offer.type,
+      origin: offer.origin,
+      destination: offer.destination,
+      departureDate: new Date(`${offer.departureAt}Z`),
+      arrivalDate: new Date(`${offer.arrivalAt}Z`),
+      duration: formatDuration(offer.durationMinutes),
+      carrierCode: offer.carrierCode,
+      carrierName: offer.carrierName,
+      offerSnapshot: { ...toPublicOffer(offer), confirmedPriceCents: amountCents } as Prisma.InputJsonValue,
+      amountCents,
+      currency: offer.currency,
+      expiresAt,
+      locale: lang,
+      passengers: [passenger],
+    },
   })
-}
-
-export async function createBooking(data: z.infer<typeof bookingSchema>) {
-  const session = await auth()
-
-  if (!session?.user?.id) {
-    return { error: "Utilizador nao autenticado" }
-  }
-
-  const validated = bookingSchema.safeParse(data)
-
-  if (!validated.success) {
-    return { error: "Dados invalidos" }
-  }
 
   try {
-    const booking = await prisma.booking.create({
-      data: {
-        userId: session.user.id,
-        flightOfferId: `${validated.data.origin}-${validated.data.destination}-${Date.now()}`,
-        provider: "viajando",
-        origin: validated.data.origin,
-        destination: validated.data.destination,
-        departureDate: new Date(validated.data.departureDate),
-        arrivalDate: new Date(validated.data.departureDate),
-        carrierCode: "VJ",
-        duration: "2h 15m",
-        amount: validated.data.price,
-        currency: "EUR",
-        passengers: validated.data.passenger,
-        status: "PENDING",
-      },
-    })
-
-    revalidatePath("/dashboard")
-    revalidatePath("/admin/bookings")
-
-    return { success: true, bookingId: booking.id }
-  } catch (error) {
-    console.error("[booking] Error creating booking:", error)
-    return { error: "Falha ao processar a reserva" }
-  }
-}
-
-export async function createBookingWithStripe(data: z.infer<typeof bookingSchema>) {
-  const session = await auth()
-
-  if (!session?.user?.id) {
-    return { error: "Utilizador nao autenticado. Por favor, faca login." }
-  }
-
-  const validated = bookingSchema.safeParse(data)
-
-  if (!validated.success) {
-    return { error: "Dados invalidos" }
-  }
-
-  try {
-    const stripe = getStripeClient()
-    if (!stripe) {
-      return { error: "Stripe nao esta configurado" }
-    }
-
-    const booking = await prisma.booking.create({
-      data: {
-        userId: session.user.id,
-        flightOfferId: `${validated.data.origin}-${validated.data.destination}-${Date.now()}`,
-        provider: "viajando",
-        origin: validated.data.origin,
-        destination: validated.data.destination,
-        departureDate: new Date(validated.data.departureDate),
-        arrivalDate: new Date(validated.data.departureDate),
-        carrierCode: "VJ",
-        duration: "2h 15m",
-        amount: validated.data.price,
-        currency: "EUR",
-        passengers: validated.data.passenger,
-        status: "PENDING",
-      },
-    })
-
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-
-    const checkoutSession = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      line_items: [
-        {
-          price_data: {
-            currency: "eur",
-            product_data: {
-              name: `Voo ${validated.data.origin} -> ${validated.data.destination}`,
-              description: `Viagem para ${validated.data.destination} em ${validated.data.departureDate}`,
+    const appUrl = getAppUrl()
+    const checkout = await stripe.checkout.sessions.create(
+      {
+        mode: "payment",
+        // Os metodos de pagamento (cartao, MB WAY, Multibanco...) sao geridos no Dashboard do Stripe.
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: offer.currency.toLowerCase(),
+              unit_amount: amountCents,
+              product_data: {
+                name: `${offer.origin} → ${offer.destination} · ${offer.carrierName}`,
+                description: `${offer.departureAt.replace("T", " ").slice(0, 16)} · ${passenger.firstName} ${passenger.lastName}`,
+              },
             },
-            unit_amount: Math.round(validated.data.price * 100),
           },
-          quantity: 1,
-        },
-      ],
-      mode: "payment",
-      success_url: `${appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}&booking_id=${booking.id}`,
-      cancel_url: `${appUrl}/checkout/cancel`,
-      metadata: {
-        bookingId: booking.id,
-        userId: session.user.id,
+        ],
+        customer_email: passenger.email,
+        client_reference_id: booking.id,
+        locale: STRIPE_LOCALES[lang],
+        expires_at: Math.floor(expiresAt.getTime() / 1000) - 60,
+        success_url: `${appUrl}/${lang}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${appUrl}/${lang}/checkout/cancel?booking=${booking.id}`,
+        metadata: { bookingId: booking.id, userId },
+        payment_intent_data: { metadata: { bookingId: booking.id } },
       },
-    })
+      { idempotencyKey: `checkout-${booking.id}` },
+    )
 
-    return { success: true, checkoutUrl: checkoutSession.url, bookingId: booking.id }
+    await prisma.booking.update({ where: { id: booking.id }, data: { stripeSessionId: checkout.id } })
+    if (!checkout.url) throw new Error("Stripe did not return a checkout URL")
+    return { checkoutUrl: checkout.url }
   } catch (error) {
     console.error("[booking] Error creating checkout:", error)
-    return { error: "Falha ao processar a reserva. Por favor, tente novamente." }
+    await prisma.booking.update({ where: { id: booking.id }, data: { status: "FAILED" } })
+    return { error: "Não foi possível iniciar o pagamento. Tente novamente." }
   }
 }
 
 export async function getUserBookings() {
   const session = await auth()
+  if (!session?.user?.id) return []
 
-  if (!session?.user?.id) {
-    return { error: "Nao autenticado" }
-  }
-
-  try {
-    const bookings = await prisma.booking.findMany({
-      where: { userId: session.user.id },
-      orderBy: { createdAt: "desc" },
-    })
-
-    return { success: true, bookings }
-  } catch (error) {
-    console.error("[booking] Error fetching bookings:", error)
-    return { error: "Falha ao buscar reservas" }
-  }
-}
-
-export async function getAllBookings() {
-  const session = await auth()
-
-  if (!session?.user || session.user.role !== "ADMIN") {
-    return { error: "Sem permissao" }
-  }
-
-  try {
-    const bookings = await prisma.booking.findMany({
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true,
-          },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-    })
-
-    return { success: true, bookings }
-  } catch (error) {
-    console.error("[booking] Error fetching all bookings:", error)
-    return { error: "Falha ao buscar reservas" }
-  }
-}
-
-export async function getAdminStats() {
-  const session = await auth()
-
-  if (!session?.user || session.user.role !== "ADMIN") {
-    return { error: "Sem permissao" }
-  }
-
-  try {
-    const [totalRevenue, totalBookings, totalUsers, paidBookings] = await Promise.all([
-      prisma.booking.aggregate({
-        where: { status: "PAID" },
-        _sum: { amount: true },
-      }),
-      prisma.booking.count(),
-      prisma.user.count(),
-      prisma.booking.count({ where: { status: "PAID" } }),
-    ])
-
-    return {
-      success: true,
-      stats: {
-        totalRevenue: totalRevenue._sum.amount || 0,
-        totalBookings,
-        totalUsers,
-        paidBookings,
-      },
-    }
-  } catch (error) {
-    console.error("[booking] Error fetching admin stats:", error)
-    return { error: "Falha ao buscar estatisticas" }
-  }
+  return prisma.booking.findMany({
+    where: { userId: session.user.id, status: { notIn: ["FAILED"] } },
+    orderBy: { departureDate: "desc" },
+    take: 100,
+  })
 }

@@ -1,8 +1,8 @@
 import type React from "react"
+import { notFound } from "next/navigation"
 import { SiteHeader } from "@/components/site-header"
 import { SiteFooter } from "@/components/site-footer"
-import { GoogleMapsLoader } from "@/components/google-maps-loader"
-import { i18n } from "@/i18n-config"
+import { i18n, type Locale } from "@/i18n-config"
 import { getDictionary } from "@/lib/get-dictionary"
 
 export async function generateStaticParams() {
@@ -14,16 +14,17 @@ export default async function LocaleLayout({
   params,
 }: {
   children: React.ReactNode
-  params: { lang: any }
+  params: Promise<{ lang: string }>
 }) {
-  const dictionary = await getDictionary(params.lang)
+  const { lang } = await params
+  if (!(i18n.locales as readonly string[]).includes(lang)) notFound()
+  const dictionary = await getDictionary(lang as Locale)
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <GoogleMapsLoader />
-      <SiteHeader lang={params.lang} dictionary={dictionary} />
-      <main className="flex-1">{children}</main>
-      <SiteFooter />
+    <div className="flex min-h-screen flex-col">
+      <SiteHeader lang={lang as Locale} dictionary={dictionary} />
+      <div className="flex flex-1 flex-col">{children}</div>
+      <SiteFooter lang={lang as Locale} />
     </div>
   )
 }

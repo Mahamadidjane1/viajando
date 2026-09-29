@@ -8,100 +8,71 @@ Viajando is designed as a production-oriented travel product for comparing and b
 
 ## Features
 
-- Multilingual routes with Portuguese, English, Spanish, and French dictionaries.
-- Flight search using Amadeus, with cache and mock fallback.
-- User registration and login with NextAuth.
-- Dashboard for bookings, favorites, wallet, and settings.
-- Admin area for platform overview and configuration screens.
-- Booking flow with passenger data validation.
-- Stripe checkout and webhook handling for paid bookings.
-- Prisma schema for users, sessions, bookings, and search logs.
-- Redis-compatible cache with in-memory fallback for local development.
-
-## HCI and Product Principles
-
-- Clear navigation with a working mobile menu and visible account actions.
-- Search form with explicit labels, keyboard-friendly native controls, validation feedback, and route swap action.
-- Reduced visual noise: no external font dependency, fewer decorative effects, restrained radius, and clearer spacing.
-- Progressive disclosure: advanced filters stay on the results page while the home page keeps the primary action focused.
-- Resilient integrations: Stripe, Google Auth, and Amadeus fail gracefully when environment variables are missing.
+- Flight search through Amadeus (with Redis cache), plus clearly labelled demo results outside production.
+- Server-side pricing: the browser only sends an offer id; the price is read from the server cache and
+  re-confirmed with Amadeus (`flight-offers/pricing`) before payment.
+- Stripe Checkout (card, MB WAY, Multibanco via the Stripe Dashboard) with an idempotent webhook that
+  handles async payments, expiry, failures and refunds.
+- Accounts with NextAuth (email/password and optional Google), rate-limited login/registration.
+- Dashboard with real bookings, profile/password settings and GDPR account deletion.
+- Admin area (`/admin`) with revenue, bookings and users, protected at the proxy and on every page.
+- Booking confirmation emails over SMTP and a working contact form.
+- Multilingual routes (`/pt`, `/en`, `/es`, `/fr`).
 
 ## Tech Stack
 
-- Next.js App Router
-- React and TypeScript
-- Prisma ORM
-- PostgreSQL
-- NextAuth
-- Stripe
-- Amadeus API
-- Upstash Redis or Vercel KV
-- Tailwind CSS and Radix UI components
-- Zod validation
+Next.js 16 (App Router, Server Actions) · React 19 · TypeScript · Prisma + PostgreSQL · NextAuth v5 ·
+Stripe · Amadeus Self-Service API · Upstash Redis · Tailwind CSS · Zod · Vitest
 
 ## Getting Started
 
-### 1. Install dependencies
-
 ```bash
 npm install
+cp .env.example .env.local        # fill DATABASE_URL and AUTH_SECRET at minimum
+npm run db:migrate                # apply migrations to your local database
+npm run dev                       # http://localhost:3000
 ```
 
-### 2. Configure environment variables
-
-Copy `.env.example` to `.env.local` and fill the values required for your environment.
+Without Amadeus credentials the search returns demo offers (only outside production). To test payments,
+add Stripe test keys and forward webhooks with the Stripe CLI:
 
 ```bash
-cp .env.example .env.local
+stripe listen --forward-to localhost:3000/api/webhooks/stripe
 ```
 
-At minimum, configure:
-
-- `DATABASE_URL`
-- `AUTH_SECRET`
-- `AMADEUS_API_KEY`
-- `AMADEUS_API_SECRET`
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
-
-### 3. Prepare the database
+Make a user an administrator (after registering the account):
 
 ```bash
-npx prisma generate
-npx prisma migrate dev
+npm run admin:promote -- you@example.com
 ```
 
-### 4. Run locally
+## Scripts
 
 ```bash
-npm run dev
+npm run dev          # development server
+npm run build        # prisma generate + production build
+npm run start        # run the production build
+npm run typecheck    # TypeScript
+npm test             # unit tests (Vitest)
+npm run db:migrate   # create/apply migrations in development
+npm run db:deploy    # apply migrations in production
 ```
 
-Open `http://localhost:3000`.
+## Deployment
 
-## Useful Scripts
-
-```bash
-npm run dev        # start development server
-npm run build      # generate Prisma client and build Next.js
-```
-
-## Security Notes
-
-Secrets must never be committed. Amadeus, Stripe, Google, database, and auth credentials must stay in `.env.local` locally and in the hosting provider environment variables in production.
-
-If any real key was previously committed, revoke it in the provider dashboard and create a new one.
+See [README_SETUP.md](README_SETUP.md) for the production checklist (environment, Stripe webhook,
+cron job, Redis, email) and [README_SECURITY.md](README_SECURITY.md) for security notes.
 
 ## Project Structure
 
 ```text
-app/              Next.js routes, server actions, and API routes
-components/       Shared UI and feature components
+app/              Routes, server actions (app/actions) and API routes (webhook, health, cron)
+components/       UI and feature components
 dictionaries/     Translation dictionaries
-lib/              Integrations, auth helpers, cache, and utilities
-prisma/           Database schema
-public/           Static assets
-scripts/          SQL/bootstrap scripts
+lib/              Integrations (Amadeus, Stripe, email), pricing/offers, cache, rate limiting, validation
+prisma/           Schema and migrations
+scripts/          Operational scripts (promote admin)
+tests/            Unit tests
 ```
 
 ## Author

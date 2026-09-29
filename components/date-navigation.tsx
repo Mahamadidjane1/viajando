@@ -1,77 +1,75 @@
+import Link from "next/link"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { format } from "date-fns"
-import { pt, enUS, es, fr } from "date-fns/locale"
-import type { Locale } from "@/i18n-config"
+import { cn } from "@/lib/utils"
+import { formatTripDate } from "@/lib/format"
 
-const localeMap = {
-  pt: pt,
-  en: enUS,
-  es: es,
-  fr: fr,
-} as const
+function shiftDate(date: string, days: number) {
+  const d = new Date(`${date}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
 
-const DATES = [
-  { day: "Seg", date: "21 Nov", price: 95 },
-  { day: "Ter", date: "22 Nov", price: 82 },
-  { day: "Qua", date: "23 Nov", price: 45, isCheapest: true },
-  { day: "Qui", date: "24 Nov", price: 85, isSelected: true },
-  { day: "Sex", date: "25 Nov", price: 110 },
-  { day: "Sáb", date: "26 Nov", price: 145 },
-  { day: "Dom", date: "27 Nov", price: 130 },
-]
-
-export function DateNavigation({ lang = "pt" }: { lang?: Locale }) {
-  // Generate dates dynamically with proper i18n
-  const today = new Date()
-  const dates = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date(today)
-    date.setDate(today.getDate() + i - 3) // 3 days before, today, 3 days after
-    return {
-      day: format(date, "EEE", { locale: localeMap[lang] }),
-      date: format(date, "d MMM", { locale: localeMap[lang] }),
-      price: Math.floor(Math.random() * 100) + 45, // Random price for demo
-      isSelected: i === 3, // Select today
-      isCheapest: i === 2, // Mark one as cheapest
-    }
-  })
+/** Navegacao entre dias proximos da data pesquisada (sem precos inventados). */
+export function DateNavigation({
+  lang,
+  date,
+  buildHref,
+}: {
+  lang: string
+  date: string
+  buildHref: (date: string) => string
+}) {
+  const today = new Date().toISOString().slice(0, 10)
+  const days = [-3, -2, -1, 0, 1, 2, 3].map((offset) => shiftDate(date, offset))
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-2 mb-6">
-      <div className="flex items-center justify-between">
-        <Button variant="ghost" size="icon" className="text-gray-400 hover:text-primary">
-          <ChevronLeft className="h-5 w-5" />
-        </Button>
-
-        <div className="flex-1 grid grid-cols-3 md:grid-cols-7 gap-2 overflow-hidden">
-          {dates.map((item, index) => (
-            <button
-              key={index}
-              className={`
-                flex flex-col items-center justify-center py-2 px-1 rounded-lg transition-all
-                ${index > 2 ? "hidden md:flex" : "flex"}
-                ${
-                  item.isSelected
-                    ? "bg-primary text-white shadow-md transform scale-105"
-                    : "hover:bg-gray-50 text-gray-600"
-                }
-              `}
-            >
-              <span className={`text-xs ${item.isSelected ? "text-primary-foreground/80" : "text-gray-400"}`}>
-                {item.day}, {item.date}
-              </span>
-              <span className={`font-bold ${item.isSelected ? "text-white" : "text-gray-900"}`}>€{item.price}</span>
-              {item.isCheapest && !item.isSelected && (
-                <span className="text-[10px] text-green-600 font-medium">Melhor preço</span>
-              )}
-            </button>
-          ))}
-        </div>
-
-        <Button variant="ghost" size="icon" className="text-gray-400 hover:text-primary">
-          <ChevronRight className="h-5 w-5" />
-        </Button>
+    <nav aria-label="Datas próximas" className="flex items-center gap-1 rounded-lg border border-gray-100 bg-white p-2 shadow-sm">
+      <DayArrow href={shiftDate(date, -1) >= today ? buildHref(shiftDate(date, -1)) : null} label="Dia anterior">
+        <ChevronLeft className="h-4 w-4" />
+      </DayArrow>
+      <div className="grid flex-1 grid-cols-3 gap-1 sm:grid-cols-7">
+        {days.map((day, index) => {
+          const disabled = day < today
+          const selected = day === date
+          const content = (
+            <>
+              <span className="block text-xs capitalize">{formatTripDate(day, lang, { weekday: "short" })}</span>
+              <span className="block text-sm font-semibold">{formatTripDate(day, lang, { day: "numeric", month: "short" })}</span>
+            </>
+          )
+          const className = cn(
+            "rounded-md px-2 py-2 text-center transition-colors",
+            index < 2 || index > 4 ? "hidden sm:block" : "",
+            selected ? "bg-primary text-primary-foreground" : "text-gray-600 hover:bg-gray-50",
+            disabled && "pointer-events-none opacity-40",
+          )
+          return disabled || selected ? (
+            <div key={day} className={className} aria-current={selected ? "date" : undefined}>
+              {content}
+            </div>
+          ) : (
+            <Link key={day} href={buildHref(day)} className={className}>
+              {content}
+            </Link>
+          )
+        })}
       </div>
-    </div>
+      <DayArrow href={buildHref(shiftDate(date, 1))} label="Dia seguinte">
+        <ChevronRight className="h-4 w-4" />
+      </DayArrow>
+    </nav>
+  )
+}
+
+function DayArrow({ href, label, children }: { href: string | null; label: string; children: React.ReactNode }) {
+  const className = "flex h-9 w-9 items-center justify-center rounded-md text-gray-500 hover:bg-gray-50"
+  return href ? (
+    <Link href={href} aria-label={label} className={className}>
+      {children}
+    </Link>
+  ) : (
+    <span aria-hidden className={cn(className, "opacity-30")}>
+      {children}
+    </span>
   )
 }

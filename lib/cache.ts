@@ -48,6 +48,29 @@ export async function cacheGet<T>(key: string): Promise<T | null> {
   return null
 }
 
+/** Incrementa um contador com janela de expiracao; devolve o valor atual. */
+export async function cacheIncr(key: string, ttlSeconds: number): Promise<number> {
+  const r = getRedis()
+  if (r) {
+    try {
+      const value = await r.incr(key)
+      if (value === 1) await r.expire(key, ttlSeconds)
+      return value
+    } catch (e) {
+      console.warn("[Cache] Redis incr failed, falling back to memory", e)
+    }
+  }
+
+  const now = Date.now()
+  const item = memoryCache.get(key)
+  if (!item || item.expires <= now) {
+    memoryCache.set(key, { value: 1, expires: now + ttlSeconds * 1000 })
+    return 1
+  }
+  item.value = Number(item.value) + 1
+  return item.value
+}
+
 export async function cacheSet(key: string, value: any, ttlSeconds = 300): Promise<void> {
   const r = getRedis()
   if (r) {

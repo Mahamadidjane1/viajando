@@ -1,107 +1,86 @@
-import { searchFlightsSafe } from "@/lib/amadeus-service"
-import { MOCK_RESULTS } from "@/lib/mock-data"
+"use server"
 
-type FlightOffer = {
-  id?: string
-  itineraries?: Array<{
-    duration?: string
-    segments?: Array<{
-      departure?: { at?: string; iataCode?: string }
-      arrival?: { at?: string; iataCode?: string }
-    }>
-  }>
-  validatingAirlineCodes?: string[]
-  price?: { total?: string; currency?: string }
-}
+import { z } from "zod"
+import { prisma } from "@/lib/db"
+import { searchFlights } from "@/lib/amadeus-service"
+import { isAmadeusConfigured } from "@/lib/api-config"
+import { isDemoDataEnabled } from "@/lib/env"
+import { buildDemoOffers, mapAmadeusOffer, saveOffers, toPublicOffer, type TravelOffer } from "@/lib/offers"
+import { getClientIp, hashIdentifier, rateLimit, RATE_LIMITS } from "@/lib/rate-limit"
 
-export async function searchFlightsAction({
-  origin,
-  destination,
-  date,
-  adults = 1,
-}: {
+export type SearchResponse =
+  | { status: "ok" | "demo"; offers: TravelOffer[] }
+  | { status: "invalid" | "rate_limited" | "unavailable"; offers: []; message: string }
+
+const searchSchema = z
+  .object({
+    origin: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/),
+    destination: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    adults: z.number().int().min(1).max(9).default(1),
+  })
+  .refine((v) => v.origin !== v.destination, { message: "Origem e destino iguais" })
+  .refine((v) => v.date >= new Date().toISOString().slice(0, 10), { message: "Data no passado" })
+
+export async function searchFlightsAction(input: {
   origin: string
   destination: string
   date: string
   adults?: number
-}) {
-  if (!origin || !destination || !date) {
-    return { success: true, data: MOCK_RESULTS }
+}): Promise<SearchResponse> {
+  const parsed = searchSchema.safeParse(input)
+  if (!parsed.success) {
+    return { status: "invalid", offers: [], message: "Pesquisa inválida. Verifique a origem, o destino e a data." }
   }
 
-  // When the quota resets or a production key is added, remove this line to re-enable real API calls.
-  // return { success: true, data: MOCK_RESULTS }
-
-  const originCode = origin.toUpperCase()
-  const destCode = destination.toUpperCase()
-
-  // If codes are not 3 letters, return mock data immediately to avoid API errors
-  if (originCode.length !== 3 || destCode.length !== 3) {
-    return { success: true, data: MOCK_RESULTS }
+  const ip = await getClientIp()
+  if (!(await rateLimit("search", ip, RATE_LIMITS.search))) {
+    return { status: "rate_limited", offers: [], message: "Demasiadas pesquisas seguidas. Aguarde um minuto." }
   }
 
-  try {
-    const results = await searchFlightsSafe({
-      origin: originCode,
-      destination: destCode,
-      date,
-      adults: adults.toString(),
+  const { origin, destination, date, adults } = parsed.data
+  const startedAt = Date.now()
+  let status: "ok" | "demo" | "unavailable" = "unavailable"
+  let offers: Parameters<typeof saveOffers>[0] = []
+
+  if (isAmadeusConfigured()) {
+    const result = await searchFlights({ origin, destination, date, adults })
+    if (result) {
+      status = "ok"
+      offers = result.offers
+        .map((raw) => mapAmadeusOffer(raw, result.carriers))
+        .filter((offer): offer is NonNullable<typeof offer> => offer !== null)
+    }
+  }
+
+  if (status === "unavailable" && isDemoDataEnabled()) {
+    status = "demo"
+    offers = buildDemoOffers(origin, destination, date)
+  }
+
+  await saveOffers(offers)
+
+  prisma.searchLog
+    .create({
+      data: {
+        origin,
+        destination,
+        date: new Date(`${date}T00:00:00Z`),
+        source: status,
+        resultCount: offers.length,
+        latencyMs: Date.now() - startedAt,
+        ipHash: hashIdentifier(ip),
+      },
     })
+    .catch((error) => console.warn("[search] Failed to write SearchLog:", error))
 
-    // If API failed (returned null) or returned no results, use MOCK data as fallback
-    // This ensures the user ALWAYS sees something
-    if (!Array.isArray(results) || results.length === 0) {
-      return { success: true, data: MOCK_RESULTS }
+  if (status === "unavailable") {
+    return {
+      status,
+      offers: [],
+      message: "O serviço de pesquisa está temporariamente indisponível. Tente novamente dentro de momentos.",
     }
-
-    const tickets = results
-      .map((offer: FlightOffer) => {
-        try {
-          const itinerary = offer.itineraries?.[0]
-          if (!itinerary) return null
-
-          const segments = itinerary.segments
-          if (!segments || segments.length === 0) return null
-
-          const firstSegment = segments[0]
-          const lastSegment = segments[segments.length - 1]
-
-          const carrierCode = offer.validatingAirlineCodes?.[0] || "YY"
-          const depTime = firstSegment.departure?.at?.split("T")[1]?.substring(0, 5) || "00:00"
-          const arrTime = lastSegment.arrival?.at?.split("T")[1]?.substring(0, 5) || "00:00"
-
-          const durationRaw = itinerary.duration || "PT2H"
-          const duration = durationRaw.replace("PT", "").toLowerCase()
-
-          return {
-            id: offer.id,
-            type: "flight",
-            carrier: carrierCode,
-            carrierLogo: `/placeholder.svg?height=40&width=40&text=${carrierCode}`,
-            departureTime: depTime,
-            arrivalTime: arrTime,
-            departureStation: firstSegment.departure?.iataCode || originCode,
-            arrivalStation: lastSegment.arrival?.iataCode || destCode,
-            duration: duration,
-            stops: segments.length - 1,
-            price: Number.parseFloat(offer.price?.total || "0"),
-            currency: offer.price?.currency || "EUR",
-            isOvernight: false,
-          }
-        } catch (e) {
-          return null
-        }
-      })
-      .filter(Boolean)
-
-    // If mapping resulted in empty array (e.g. bad data), fallback to MOCK
-    if (tickets.length === 0) {
-      return { success: true, data: MOCK_RESULTS }
-    }
-
-    return { success: true, data: tickets }
-  } catch (error) {
-    // Any other error, return mock
-    return { success: true, data: MOCK_RESULTS }
   }
+
+  return { status, offers: offers.map(toPublicOffer) }
 }

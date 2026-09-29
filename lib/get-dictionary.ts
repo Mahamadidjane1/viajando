@@ -1,4 +1,4 @@
-"use server"
+import "server-only"
 
 import type { Locale } from "@/i18n-config"
 import { i18n } from "@/i18n-config"
